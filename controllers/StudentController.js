@@ -213,7 +213,6 @@ const addAvatar = async (req, res) => {
         }
 
       const data = await uploadImageToAvatar(req, res, file, { academicYearId: student.AcademicYearId, studentId: studentId});
-      console.log('Image uploaded successfully:', data.Location);
   
       await Student.update(
         {

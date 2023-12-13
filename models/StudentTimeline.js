@@ -9,7 +9,7 @@ const StudentTimeline = sequelize.define('StudentTimeline', {
     },
     progress : {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
     },
     attendanceStatus : {
         type: DataTypes.STRING,
@@ -17,6 +17,10 @@ const StudentTimeline = sequelize.define('StudentTimeline', {
     },
     image :{
         type: DataTypes.STRING,
+        allowNull: true,
+    },
+    subjects : {
+        type: DataTypes.ARRAY(DataTypes.INTEGER),
         allowNull: true,
     },
 });

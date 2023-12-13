@@ -49,10 +49,35 @@ const uploadImageToAvatar = (req, res, file, keyData) => {
   });
 };
 
-
+const uploadImageToTimeline = (req, res,  keyData) => {
+  return new Promise((resolve, reject) => {
+    const upload = multer({
+      storage: multerS3({
+        s3: s3,
+        bucket: process.env.AWS_TIMELINE_BUCKET,
+        key: function (req, file, cb) {
+          cb(null, `${keyData.academicYearId}/${keyData.studentId}-${keyData.date}${path.extname(file.originalname)}`);
+        }
+      }),
+      fileFilter: function (req, file, cb) {
+        checkFileType(file, cb);
+      }
+    })
+    .single('timelineImg');
+    upload(req, res, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ Location: req.file.location }); 
+      }
+    });
+    
+  });  
+};
 
 
 
 module.exports = {
-  uploadImageToAvatar
+  uploadImageToAvatar,
+  uploadImageToTimeline
 };

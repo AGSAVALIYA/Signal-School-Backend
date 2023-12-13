@@ -16,9 +16,10 @@ app.use(cors({
 }));
 app.options('*', cors());
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-// app.use(multer().array());
+
+//use multi part form data
 
 
 
