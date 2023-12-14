@@ -50,7 +50,11 @@ StudentSubject.belongsTo(Class);
 Teacher.belongsToMany(School, { through: 'TeacherSchool' });
 School.belongsToMany(Teacher, { through: 'TeacherSchool' });
 
-StudentTimeline.belongsTo(Student);
+// In StudentTimeline model
+Student.hasMany(StudentTimeline, { foreignKey: 'StudentId' });
+StudentTimeline.belongsTo(Student, { foreignKey: 'StudentId' });
+
+
 
 
 

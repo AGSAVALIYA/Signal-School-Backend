@@ -5,28 +5,27 @@ const School = require('../models/School');
 const { Op } = require('sequelize');
 const { uploadImageToAvatar } = require('../utils/s3Upload');
 const Subject = require('../models/Subject');
+const StudentTimeline = require('../models/StudentTimeline');
 
 
 //Create a student
 const createStudent = async (req, res) => {
     try {
-        if(!req.user){
+        if (!req.user) {
             throw new Error('You are not authorized to access this route');
         }
 
-        if(!req.admin && req.teacher){
-            if(!req.teacher.currentSchool || req.teacher.currentSchool === null){
+        if (!req.admin && req.teacher) {
+            if (!req.teacher.currentSchool || req.teacher.currentSchool === null) {
                 throw new Error('Create a school first');
             }
         }
 
-        if(!req.teacher && req.admin){
-            if(!req.admin.currentSchool || req.admin.currentSchool === null){
+        if (!req.teacher && req.admin) {
+            if (!req.admin.currentSchool || req.admin.currentSchool === null) {
                 throw new Error('Create a school first');
             }
         }
-
-
 
         const name = req.body.name;
         const age = req.body.age;
@@ -46,7 +45,7 @@ const createStudent = async (req, res) => {
         //get latest student from student table
         const classDetails = await Class.findOne({ where: { id: ClassId } });
         const AcademicYearId = classDetails.AcademicYearId;
-        if(req.body.GRNumber){
+        if (req.body.GRNumber) {
             //create student with GRNumber
             const student = await Student.create({
                 name: name,
@@ -73,7 +72,7 @@ const createStudent = async (req, res) => {
         else {
             GRNumber = 'GRN1';
         }
-        
+
         const student = await Student.create({
             name: name,
             age: age,
@@ -123,13 +122,30 @@ const getAllStudentsByClassId = async (req, res) => {
         }
         let students;
         let classDetails;
+        let schoolId;
         if (req.admin) {
-            students = await Student.findAll({ where: { SchoolId: req.admin.currentSchool, ClassId: classId }, attributes: ['id', 'name','imageLink'] });
+            schoolId = req.admin.currentSchool;
         }
         if (req.teacher) {
-            classDetails = await Class.findOne({ where: { id: classId }, attributes: ['name'] });
-            students = await Student.findAll({ where: { SchoolId: req.teacher.currentSchool, ClassId: classId }, attributes: ['id', 'name','imageLink']  });
+            schoolId = req.teacher.currentSchool;
         }
+
+
+
+
+        students = await Student.findAll({
+          where: { SchoolId: schoolId, ClassId: classId },
+          attributes: ['id', 'name', 'imageLink', 'todayStatus'],
+          include: [
+            {
+              model: StudentTimeline,
+              required: false,
+              where: { date: new Date().toISOString().slice(0, 10) },
+            },
+          ],
+        });
+        
+        classDetails = await Class.findOne({ where: { id: classId }, attributes: ['name'] });
 
         students.sort((a, b) => {
             return a.name.localeCompare(b.name);
@@ -155,7 +171,7 @@ const getStudentById = async (req, res) => {
         const studentId = req.params.id;
         const student = await Student.findOne({
             where: { id: studentId, SchoolId: schoolId },
-            include: [{ model: Class, attributes: ['name', 'id'] , include: [{model: Subject, attributes: ['name', 'id']}] }]
+            include: [{ model: Class, attributes: ['name', 'id'], include: [{ model: Subject, attributes: ['name', 'id'] }] }]
         });
 
         const Subjects = await student.getSubjects();
@@ -185,7 +201,7 @@ const updateStudent = async (req, res) => {
         const ClassId = req.body.ClassId;
         const address = req.body.address;
 
-        if (!name || !age  || !ClassId) {
+        if (!name || !age || !ClassId) {
             throw new Error('Something went wrong');
         }
         const student = await Student.update({
@@ -205,31 +221,31 @@ const updateStudent = async (req, res) => {
 //add avatar to student
 const addAvatar = async (req, res) => {
     try {
-      const studentId = req.params.id;
-      const file = req.file;
-      const student = await Student.findOne({ where: { id: studentId } });
+        const studentId = req.params.id;
+        const file = req.file;
+        const student = await Student.findOne({ where: { id: studentId } });
         if (!student) {
             throw new Error('Student not found');
         }
 
-      const data = await uploadImageToAvatar(req, res, file, { academicYearId: student.AcademicYearId, studentId: studentId});
-  
-      await Student.update(
-        {
-          imageLink: data.Location,
-        },
-        { where: { id: studentId } }
-      );
-  
-      res.json({ message: 'Image uploaded successfully', imageLink: data.Location });
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      res.status(500).json({ error: error.message });
-    }
-  };
-  
+        const data = await uploadImageToAvatar(req, res, file, { academicYearId: student.AcademicYearId, studentId: studentId });
 
-        
+        await Student.update(
+            {
+                imageLink: data.Location,
+            },
+            { where: { id: studentId } }
+        );
+
+        res.json({ message: 'Image uploaded successfully', imageLink: data.Location });
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+
 
 
 

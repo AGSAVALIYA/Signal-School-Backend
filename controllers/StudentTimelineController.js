@@ -50,6 +50,18 @@ const createStudentTimeline = async (req, res) => {
                 });
             }
 
+            if(attendanceStatus === 'present' && student.todayStatus === 'absent'){
+                student.todayStatus = 'present';
+                await student.save();
+            }
+
+            if(attendanceStatus === 'absent' && student.todayStatus === 'present'){
+                student.todayStatus = 'absent';
+                await student.save();
+            }
+
+
+
             return res.status(201).json({ message: 'Student timeline created successfully', studentTimeline });
         } catch (error) {
             return res.status(500).json({ error: error.message });
@@ -71,6 +83,7 @@ const getStudentTimelinesByStudentId = async (req, res) => {
 
             const studentTimelines = await StudentTimeline.findAll({
                 where: { StudentId: studentId },
+                order: [['createdAt', 'DESC']],
             });
 
             return res.status(200).json({ studentTimelines });

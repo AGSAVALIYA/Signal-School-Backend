@@ -26,6 +26,5 @@ const StudentTimeline = sequelize.define('StudentTimeline', {
 });
 
 
-StudentTimeline.belongsTo(Student);
 
 module.exports = StudentTimeline;
