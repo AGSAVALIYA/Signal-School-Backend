@@ -31,7 +31,6 @@ const StudentRoute = require('./routes/student');
 const SubjectRoute = require('./routes/subject');
 const AcademicYearRoute = require('./routes/academicYear');
 const ClassRoute = require('./routes/class');
-const StudentSubjectRoute = require('./routes/studentsubject');
 const StudentTimelineRoute = require('./routes/studenttimeline');
 
 
@@ -43,7 +42,6 @@ app.use('/', StudentRoute);
 app.use('/', SubjectRoute);
 app.use('/', AcademicYearRoute);
 app.use('/', ClassRoute);
-app.use('/', StudentSubjectRoute);
 app.use('/', StudentTimelineRoute);
 
 app.get('/', (req, res) => {
