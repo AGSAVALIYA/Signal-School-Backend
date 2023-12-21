@@ -6,89 +6,148 @@ const { Op } = require('sequelize');
 const { uploadImageToAvatar } = require('../utils/s3Upload');
 const Subject = require('../models/Subject');
 const StudentTimeline = require('../models/StudentTimeline');
+const Sequelize = require('sequelize');
+const sequelize = require('../config/db');
 
 
 //Create a student
+// const createStudent = async (req, res) => {
+//     try {
+//         if (!req.user) {
+//             throw new Error('You are not authorized to access this route');
+//         }
+
+//         if (!req.admin && req.teacher) {
+//             if (!req.teacher.currentSchool || req.teacher.currentSchool === null) {
+//                 throw new Error('Create a school first');
+//             }
+//         }
+
+//         if (!req.teacher && req.admin) {
+//             if (!req.admin.currentSchool || req.admin.currentSchool === null) {
+//                 throw new Error('Create a school first');
+//             }
+//         }
+
+//         const name = req.body.name;
+//         const age = req.body.age;
+//         const dob = req.body.dob;
+//         const ClassId = req.body.ClassId;
+//         let schoolId;
+//         if (req.admin) {
+//             schoolId = req.admin.currentSchool;
+//         }
+//         if (req.teacher) {
+//             schoolId = req.teacher.currentSchool;
+//         }
+//         const address = req.body.address;
+//         if (!name || !age || !ClassId) {
+//             throw new Error('All fields are required');
+//         }
+//         //get latest student from student table
+//         const classDetails = await Class.findOne({ where: { id: ClassId } });
+//         const AcademicYearId = classDetails.AcademicYearId;
+//         if (req.body.GRNumber) {
+//             //create student with GRNumber
+//             const student = await Student.create({
+//                 name: name,
+//                 age: age,
+//                 AcademicYearId: AcademicYearId,
+//                 ClassId: ClassId,
+//                 SchoolId: schoolId,
+//                 address: address,
+//                 dob: dob,
+//                 GRNumber: req.body.GRNumber
+//             });
+//             return res.status(201).json({ message: 'Student created successfully', student });
+
+//         }
+
+
+//         //find student with biggest GRNumber
+//         const lastStudent = await Student.findOne({ where: { SchoolId: schoolId }, order: [['GRNumber', 'DESC']] });
+//         let GRNumber;
+//         //GRNumber is LIKE GR1
+//         if (lastStudent) {
+//             GRNumber = 'GRN' + (parseInt(lastStudent.GRNumber.slice(3)) + 1);
+//         }
+//         else {
+//             GRNumber = 'GRN1';
+//         }
+
+//         const student = await Student.create({
+//             name: name,
+//             age: age,
+//             AcademicYearId: AcademicYearId,
+//             ClassId: ClassId,
+//             SchoolId: schoolId,
+//             address: address,
+//             dob: dob,
+//             GRNumber: GRNumber
+//         });
+//         return res.status(201).json({ message: 'Student created successfully', student });
+
+//     } catch (error) {
+//         return res.status(500).json({ error: error.message })
+//     }
+// }
 const createStudent = async (req, res) => {
     try {
         if (!req.user) {
             throw new Error('You are not authorized to access this route');
         }
 
-        if (!req.admin && req.teacher) {
-            if (!req.teacher.currentSchool || req.teacher.currentSchool === null) {
-                throw new Error('Create a school first');
-            }
+        const isAdmin = req.admin ? true : false;
+        const isTeacher = req.teacher ? true : false;
+
+        if ((isAdmin || isTeacher) && !req.currentSchool) {
+            throw new Error('Create a school first');
         }
 
-        if (!req.teacher && req.admin) {
-            if (!req.admin.currentSchool || req.admin.currentSchool === null) {
-                throw new Error('Create a school first');
-            }
-        }
+        const { name, age, dob, ClassId, address, GRNumber } = req.body;
 
-        const name = req.body.name;
-        const age = req.body.age;
-        const dob = req.body.dob;
-        const ClassId = req.body.ClassId;
-        let schoolId;
-        if (req.admin) {
-            schoolId = req.admin.currentSchool;
-        }
-        if (req.teacher) {
-            schoolId = req.teacher.currentSchool;
-        }
-        const address = req.body.address;
         if (!name || !age || !ClassId) {
             throw new Error('All fields are required');
         }
-        //get latest student from student table
+
         const classDetails = await Class.findOne({ where: { id: ClassId } });
         const AcademicYearId = classDetails.AcademicYearId;
-        if (req.body.GRNumber) {
-            //create student with GRNumber
+        const schoolId = req.currentSchool;
+
+        if (GRNumber) {
+            // Create student with provided GRNumber
             const student = await Student.create({
-                name: name,
-                age: age,
-                AcademicYearId: AcademicYearId,
-                ClassId: ClassId,
-                SchoolId: schoolId,
-                address: address,
-                dob: dob,
-                GRNumber: req.body.GRNumber
+                name, age, AcademicYearId, ClassId, SchoolId: schoolId, address, dob, GRNumber
             });
             return res.status(201).json({ message: 'Student created successfully', student });
-
         }
 
-
-        //find student with biggest GRNumber
-        const lastStudent = await Student.findOne({ where: { SchoolId: schoolId }, order: [['GRNumber', 'DESC']] });
-        let GRNumber;
-        //GRNumber is LIKE GR1
-        if (lastStudent) {
-            GRNumber = 'GRN' + (parseInt(lastStudent.GRNumber.slice(3)) + 1);
-        }
-        else {
-            GRNumber = 'GRN1';
-        }
-
+    
+          
+        const schoolPrefix = 'SCH'; // Adjust as needed
+        const separator = '-'; // Adjust as needed
+        // SELECT "GRNumber"
+        // FROM public."Students"
+        // ORDER BY SUBSTRING("GRNumber" FROM '(\d+)$')::integer DESC;
+        const lastStudent = await Student.findOne({
+            where: { SchoolId: schoolId },
+            order: [sequelize.literal('CAST(SUBSTRING("GRNumber" FROM \'\\d+$\') AS INTEGER) DESC')],
+          });
+          
+          
+        const newNumericPart = lastStudent ? parseInt(lastStudent.GRNumber.split(separator)[1]) + 1 : 1;
+        const newGRNumber = `${schoolPrefix}${schoolId}${separator}${newNumericPart}`;
         const student = await Student.create({
-            name: name,
-            age: age,
-            AcademicYearId: AcademicYearId,
-            ClassId: ClassId,
-            SchoolId: schoolId,
-            address: address,
-            dob: dob,
-            GRNumber: GRNumber
+            name, age, AcademicYearId, ClassId, SchoolId: schoolId, address, dob, GRNumber: newGRNumber
         });
+
         return res.status(201).json({ message: 'Student created successfully', student });
 
     } catch (error) {
-        return res.status(500).json({ error: error.message })
+        return res.status(500).json({ error: error.message });
     }
-}
+};
+
 
 const getAllStudents = async (req, res) => {
     try {

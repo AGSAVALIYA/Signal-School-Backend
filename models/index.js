@@ -7,6 +7,7 @@ const Subject = require('./Subject');
 const AcademicYear = require('./AcademicYear');
 const Class = require('./Class');
 const StudentTimeline = require('./StudentTimeline');
+const Report = require('./Report');
 const sequelize = require('../config/db');
 
 
@@ -18,6 +19,18 @@ Organization.hasMany(Admin);
 Admin.belongsTo(Organization);
 
 
+//add foreign key to report table of student id ,  subject id , class id , academic year id
+Student.hasMany(Report);
+Report.belongsTo(Student);
+
+Subject.hasMany(Report);
+Report.belongsTo(Subject);
+
+Class.hasMany(Report);
+Report.belongsTo(Class);
+
+AcademicYear.hasMany(Report);
+Report.belongsTo(AcademicYear);
 
 School.hasMany(Student);
 Student.belongsTo(School);
@@ -49,6 +62,10 @@ School.belongsToMany(Teacher, { through: 'TeacherSchool' });
 // In StudentTimeline model
 Student.hasMany(StudentTimeline, { foreignKey: 'StudentId' });
 StudentTimeline.belongsTo(Student, { foreignKey: 'StudentId' });
+
+//students.getSubject() => returns all subjects of a student
+Student.belongsToMany(Subject, { through: 'StudentSubject' });
+
 
 
 

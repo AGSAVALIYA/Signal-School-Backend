@@ -12,7 +12,6 @@ const s3 = new AWS.S3({
 // Function to upload an image to S3
 
 function checkFileType(file, cb) {
-  console.log(file);
   const filetypes = /jpg|png|jpeg/;
   const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = filetypes.test(file.mimetype);

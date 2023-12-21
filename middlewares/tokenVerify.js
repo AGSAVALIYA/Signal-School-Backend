@@ -26,9 +26,11 @@ module.exports = async (req, res, next) => {
         if (admin) {
             req.user = 'admin';
             req.admin = admin;
+            req.currentSchool = admin.currentSchool;
         } else if (teacher) {
             req.user = 'teacher';
             req.teacher = teacher;
+            req.currentSchool = teacher.currentSchool;
         }
 
         // Call next() outside of the if conditions
