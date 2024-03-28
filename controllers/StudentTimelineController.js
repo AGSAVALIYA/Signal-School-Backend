@@ -3,6 +3,9 @@ const dotenv = require('dotenv');
 const AWS = require("aws-sdk");
 const Student = require('../models/Student');
 const { uploadImageToTimeline } = require('../utils/s3Upload');
+const moment = require('moment');
+const Attendance = require('../models/Attendance');
+const Subject = require('../models/Subject');
 
 //CONFIG FOR THE UPLOAD
 dotenv.config();
@@ -11,15 +14,23 @@ dotenv.config();
 
 const createStudentTimeline = async (req, res) => {
     try {
-        let date = req.body.date;
+        let attendenceDate = req.body.attendenceDate;
         let progress = req.body.progress;
         let attendanceStatus = req.body.attendanceStatus;
         let studentId = req.body.studentId;
         let subjects = req.body.subjects;
+        //parse subject string to array
+        //convert to json and int
+        subjects = JSON.parse(subjects);
+        subjects = subjects.map((subject) => parseInt(subject));
 
-        date = new Date(date);
 
-        if (!date || !attendanceStatus || !studentId) {
+        // attendenceDate = new Date(attendenceDate);
+        console.log(attendenceDate, "before formatting");
+        attendenceDate = moment(attendenceDate).format('YYYY-MM-DD');
+        console.log(attendenceDate, "after formatting");
+
+        if (!attendenceDate || !attendanceStatus || !studentId) {
             return res.status(400).json({ error: 'Please provide all required fields' });
         }
     
@@ -33,32 +44,45 @@ const createStudentTimeline = async (req, res) => {
         try {
             if (req.files) {
                 studentTimeline = await StudentTimeline.create({
-                    date,
+                    date: attendenceDate,
                     progress,
                     attendanceStatus,
                     image: req.files ? req.files.timelineImg ? req.files.timelineImg[0].location : null : null,
-                    StudentId: studentId,
-                    subjects,
+                    StudentId: studentId
                 });
             } else {
                 studentTimeline = await StudentTimeline.create({
-                    date,
+                    date: attendenceDate,
                     progress,
                     attendanceStatus,
-                    StudentId: studentId,
-                    subjects,
+                    StudentId: studentId
                 });
             }
+            studentTimeline.setSubjects(subjects);
+            if(attendanceStatus === 'present'){
+                //if attendace for that day is absent or not exist in Attedence table then create new record
+                const attendance = await Attendance.findOne({ where: { studentId, date: attendenceDate } });
 
-            if(attendanceStatus === 'present' && student.todayStatus === 'absent'){
-                student.todayStatus = 'present';
-                await student.save();
+                if(!attendance){
+                    await Attendance.create({
+                        studentId,
+                        classId: student.ClassId,
+                        date: attendenceDate,
+                        schoolId: student.SchoolId,
+                        status: 'present'
+                    });
+                }else{
+                    if(attendance.status === 'absent'){
+                        attendance.status = 'present';
+                        await attendance.save();
+                    }
+                }
+
             }
 
-            if(attendanceStatus === 'absent' && student.todayStatus === 'present'){
-                student.todayStatus = 'absent';
-                await student.save();
-            }
+
+
+
 
 
 
@@ -81,10 +105,41 @@ const getStudentTimelinesByStudentId = async (req, res) => {
                 return res.status(400).json({ error: 'Student ID is required' });
             }
 
+            // const studentTimelines = await StudentTimeline.findAll({
+            //     where: { StudentId: studentId },
+            //     order: [['createdAt', 'DESC']],
+            // });
+//             Subject.belongsToMany(StudentTimeline, { through: 'SubjectStudentTimeline' });
+// StudentTimeline.belongsToMany(Subject, { through: 'SubjectStudentTimeline' });
+
+            // const studentTimelines = await StudentTimeline.findAll({
+            //     where: { StudentId: studentId },
+            //     include: [
+            //         {
+            //             model: Subject,
+            //             through: { attributes: [  ] },
+            //         },
+            //     ],
+            //     order: [['createdAt', 'DESC']],
+            // });
+
+            //only name of subjects
             const studentTimelines = await StudentTimeline.findAll({
                 where: { StudentId: studentId },
+                include: [
+                    {
+                        model: Subject,
+                        through: { attributes: [] },
+                    },
+                ],
                 order: [['createdAt', 'DESC']],
             });
+
+            studentTimelines.forEach((timeline) => {
+                timeline.Subjects = timeline.Subjects.map((subject) => subject.name);
+            }
+            );
+
 
             return res.status(200).json({ studentTimelines });
         } catch (error) {
@@ -92,13 +147,15 @@ const getStudentTimelinesByStudentId = async (req, res) => {
         }
     };
 
+
+
     // Update Student Timeline by ID
     const updateStudentTimeline = async (req, res) => {
         try {
             const timelineId = req.params.id;
-            const { date, progress, attendanceStatus } = req.body;
+            const { attendenceDate, progress, attendanceStatus } = req.body;
 
-            if (!date || !progress || !attendanceStatus) {
+            if (!attendenceDate || !progress || !attendanceStatus) {
                 return res.status(400).json({ error: 'Please provide date, progress, and attendance status' });
             }
 
@@ -108,7 +165,7 @@ const getStudentTimelinesByStudentId = async (req, res) => {
                 return res.status(404).json({ error: 'Student timeline not found' });
             }
 
-            studentTimeline.date = date;
+            studentTimeline.date = attendenceDate;
             studentTimeline.progress = progress;
             studentTimeline.attendanceStatus = attendanceStatus;
 

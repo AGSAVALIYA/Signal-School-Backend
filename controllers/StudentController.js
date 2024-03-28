@@ -8,7 +8,8 @@ const Subject = require('../models/Subject');
 const StudentTimeline = require('../models/StudentTimeline');
 const Sequelize = require('sequelize');
 const sequelize = require('../config/db');
-
+const moment = require('moment');
+const Attendance = require('../models/Attendance');
 
 //Create a student
 // const createStudent = async (req, res) => {
@@ -159,9 +160,29 @@ const getAllStudents = async (req, res) => {
         //     students = await Student.findAll({ where: { SchoolId: req.admin.currentSchool }, include: [{ model: Class, attributes: ['name'] }] });
         // }
         //get curent academic year
+        let today = moment().format('YYYY-MM-DD');
         const school = await School.findOne({ where: { id: req.admin.currentSchool } });
         const currentAcademicYear = school.currentAcademicYear;
-        students = await Student.findAll({ where: { SchoolId: req.admin.currentSchool }, include: [{ model: Class, attributes: ['name'], where: { AcademicYearId: currentAcademicYear } }] });
+        students = await Student.findAll({ 
+            where: { SchoolId: req.admin.currentSchool }, 
+            include: [
+                { model: Class, attributes: ['name'], where: { AcademicYearId: currentAcademicYear } },
+                {model: Attendance, required: false, where: { date: today }}
+            ] });
+
+        students.sort((a, b) => {
+            return a.name.localeCompare(b.name);
+        }
+        );
+        students.forEach((student) => {
+            if (student.Attendances.length > 0) {
+                student.dataValues.todayStatus = student.Attendances[0].status;
+            }
+            else {
+                student.dataValues.todayStatus = 'absent';
+            }
+        }
+        );
 
         return res.status(200).json({ students });
     }
@@ -190,25 +211,48 @@ const getAllStudentsByClassId = async (req, res) => {
         }
 
 
-
+        const today = moment().format('YYYY-MM-DD');
 
         students = await Student.findAll({
           where: { SchoolId: schoolId, ClassId: classId },
-          attributes: ['id', 'name', 'imageLink', 'todayStatus'],
+          attributes: ['id', 'name', 'imageLink'],
           include: [
+            // {
+            //   model: StudentTimeline,
+            //   required: false,
+            //   where: { date: today },
+            // },
             {
-              model: StudentTimeline,
-              required: false,
-              where: { date: new Date().toISOString().slice(0, 10) },
-            },
+                model: Attendance,
+                required: false,
+                where: { date: today },
+            }
           ],
         });
         
+
         classDetails = await Class.findOne({ where: { id: classId }, attributes: ['name'] });
 
         students.sort((a, b) => {
             return a.name.localeCompare(b.name);
         });
+
+     
+        students.forEach((student) => {
+            if (student.Attendances.length > 0) {
+                if(student.Attendances[0].status === 'present'){
+                    student.dataValues.todayStatus = 'present';
+                }
+                else{
+                    student.dataValues.todayStatus = 'absent';
+                }
+               
+            }
+            else {
+                student.dataValues.todayStatus = null;
+            }
+        }
+        );
         return res.status(200).json({ students, classDetails });
     }
     catch (error) {

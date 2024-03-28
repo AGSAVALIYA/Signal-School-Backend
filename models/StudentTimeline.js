@@ -18,11 +18,7 @@ const StudentTimeline = sequelize.define('StudentTimeline', {
     image :{
         type: DataTypes.STRING,
         allowNull: true,
-    },
-    subjects : {
-        type: DataTypes.ARRAY(DataTypes.INTEGER),
-        allowNull: true,
-    },
+    }
 });
 
 

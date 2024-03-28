@@ -24,12 +24,6 @@ const Student = sequelize.define('Student', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  todayStatus: {
-   //default value is absent
-    type: DataTypes.STRING,
-    allowNull: true,
-    defaultValue: 'absent',
-  },
   imageLink: {
     type: DataTypes.STRING,
     allowNull: true,
