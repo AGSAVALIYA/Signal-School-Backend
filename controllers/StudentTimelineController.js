@@ -26,9 +26,7 @@ const createStudentTimeline = async (req, res) => {
 
 
         // attendenceDate = new Date(attendenceDate);
-        console.log(attendenceDate, "before formatting");
         attendenceDate = moment(attendenceDate).format('YYYY-MM-DD');
-        console.log(attendenceDate, "after formatting");
 
         if (!attendenceDate || !attendanceStatus || !studentId) {
             return res.status(400).json({ error: 'Please provide all required fields' });
@@ -60,7 +58,6 @@ const createStudentTimeline = async (req, res) => {
             }
             studentTimeline.setSubjects(subjects);
             if(attendanceStatus === 'present'){
-                //if attendace for that day is absent or not exist in Attedence table then create new record
                 const attendance = await Attendance.findOne({ where: { studentId, date: attendenceDate } });
 
                 if(!attendance){
@@ -74,10 +71,30 @@ const createStudentTimeline = async (req, res) => {
                 }else{
                     if(attendance.status === 'absent'){
                         attendance.status = 'present';
+                        console.log('attendance status is absent');
                         await attendance.save();
                     }
                 }
 
+            }
+            else if(attendanceStatus === 'absent'){
+                const attendance = await Attendance.findOne({ where: { studentId, date: attendenceDate } });
+
+                if(!attendance){
+                    await Attendance.create({
+                        studentId,
+                        classId: student.ClassId,
+                        date: attendenceDate,
+                        schoolId: student.SchoolId,
+                        status: 'absent'
+                    });
+                }else{
+                    if(attendance.status === 'present'){
+                        attendance.status = 'absent';
+                        console.log('attendance status is present');
+                        await attendance.save();
+                    }
+                }
             }
 
 
@@ -105,25 +122,7 @@ const getStudentTimelinesByStudentId = async (req, res) => {
                 return res.status(400).json({ error: 'Student ID is required' });
             }
 
-            // const studentTimelines = await StudentTimeline.findAll({
-            //     where: { StudentId: studentId },
-            //     order: [['createdAt', 'DESC']],
-            // });
-//             Subject.belongsToMany(StudentTimeline, { through: 'SubjectStudentTimeline' });
-// StudentTimeline.belongsToMany(Subject, { through: 'SubjectStudentTimeline' });
-
-            // const studentTimelines = await StudentTimeline.findAll({
-            //     where: { StudentId: studentId },
-            //     include: [
-            //         {
-            //             model: Subject,
-            //             through: { attributes: [  ] },
-            //         },
-            //     ],
-            //     order: [['createdAt', 'DESC']],
-            // });
-
-            //only name of subjects
+ 
             const studentTimelines = await StudentTimeline.findAll({
                 where: { StudentId: studentId },
                 include: [
