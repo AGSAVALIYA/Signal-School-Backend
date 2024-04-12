@@ -35,6 +35,8 @@ const AcademicYearRoute = require('./routes/academicYear');
 const ClassRoute = require('./routes/class');
 const StudentTimelineRoute = require('./routes/studenttimeline');
 const ReportRoute = require('./routes/report');
+const AttendanceRoute = require('./routes/attendance');
+const SyllabusRoute = require('./routes/syllabus');
 
 
 app.use('/', AuthRoute);
@@ -47,6 +49,8 @@ app.use('/', AcademicYearRoute);
 app.use('/', ClassRoute);
 app.use('/', StudentTimelineRoute);
 app.use('/', ReportRoute);
+app.use('/', AttendanceRoute);
+app.use('/', SyllabusRoute);
 
 app.get('/', (req, res) => {
     res.send('Signal School API');

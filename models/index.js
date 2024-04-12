@@ -10,6 +10,9 @@ const StudentTimeline = require('./StudentTimeline');
 const Report = require('./Report');
 const sequelize = require('../config/db');
 const Attendance = require('./Attendance');
+const Chapter = require('./Chapter');
+const Topic = require('./Topic');
+
 
 
 Organization.hasMany(School);
@@ -86,6 +89,12 @@ Attendance.belongsTo(Class , { foreignKey: 'classId' });
 
 School.hasMany(Attendance , { foreignKey: 'schoolId' });
 Attendance.belongsTo(School , { foreignKey: 'schoolId' });
+
+Subject.hasMany(Chapter);
+Chapter.belongsTo(Subject);
+
+Chapter.hasMany(Topic);
+Topic.belongsTo(Chapter);
 
 
 
