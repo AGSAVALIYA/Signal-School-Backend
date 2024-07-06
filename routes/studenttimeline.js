@@ -15,7 +15,7 @@ const s3 = new AWS.S3({
   );
   
   function checkFileType(file, cb) {
-    const filetypes = /jpg|png|jpeg/;
+    const filetypes = /jpg|png|jpeg|gif|pdf|doc|docx|xls|xlsx/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
   
@@ -51,6 +51,10 @@ const StudentTimeline = require('../controllers/StudentTimelineController')
 router.post('/studentTimeline/create/:studentId',tokenVerify, upload.fields([
     { name: 'timelineImg', maxCount: 1 }
   ]), StudentTimeline.createStudentTimeline)
+router.post('/studentTimeline/bulkCreate/:classId', tokenVerify, upload.fields([
+    { name: 'timelineImg', maxCount: 1 }
+  ]), StudentTimeline.bulkCreateStudentTimeline)
+
 router.get('/studentTimeline/getAll/:studentId',tokenVerify, StudentTimeline.getStudentTimelinesByStudentId)
 router.put('/studentTimeline/update/:id',tokenVerify, StudentTimeline.updateStudentTimeline)
 router.delete('/studentTimeline/delete/:id',tokenVerify, StudentTimeline.deleteStudentTimeline)
