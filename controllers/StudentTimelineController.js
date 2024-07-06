@@ -194,9 +194,89 @@ const getStudentTimelinesByStudentId = async (req, res) => {
         }
     };
 
+
+    const bulkCreateStudentTimeline = async (req, res) => {
+        try {
+            const classId = req.params.classId;
+            const studentIds = req.body.studentIds;
+            const attendenceDate = req.body.attendenceDate;
+            const progress = req.body.progress;
+            const subjects = req.body.subjects;
+
+            if (!classId || !studentIds || !attendenceDate || !progress || !subjects) {
+                return res.status(400).json({ error: 'Please provide all required fields' });
+            }
+
+            //parse subject string to array
+            //convert to json and int
+            subjects = JSON.parse(subjects);
+            subjects = subjects.map((subject) => parseInt(subject));
+
+            // attendenceDate = new Date(attendenceDate);
+            attendenceDate = moment(attendenceDate).format('YYYY-MM-DD');
+
+            const students = await Student.findAll({ where: { id: studentIds } });
+
+            if (!students) {
+                return res.status(404).json({ error: 'Students not found' });
+            }
+
+            const studentTimelines = await StudentTimeline.bulkCreate(
+                students.map((student) => ({
+                    date: attendenceDate,
+                    progress,
+                    StudentId: student.id,
+                }))
+            );
+
+            studentTimelines.forEach((timeline) => {
+                timeline.setSubjects(subjects);
+            });
+
+            if (req.files) {
+                //keep same image for all students
+                const image = req.files.timelineImg ? req.files.timelineImg[0].location : null;
+                studentTimelines.forEach((timeline) => {
+                    timeline.image = image;
+                    timeline.save();
+                });
+                
+            }
+
+
+            //mark present in attendance
+            students.forEach(async (student) => {
+                const attendance = await Attendance.findOne({ where: { studentId: student.id, date: attendenceDate } });
+
+                if (!attendance) {
+                    await Attendance.create({
+                        studentId: student.id,
+                        classId,
+                        date: attendenceDate,
+                        schoolId: student.SchoolId,
+                        status: 'present',
+                    });
+                } else {
+                    if (attendance.status === 'absent') {
+                        attendance.status = 'present';
+                        await attendance.save();
+                    }
+                }
+            });
+
+            return res.status(201).json({ message: 'Student timelines created successfully', studentTimelines });
+        }
+        catch (error) {
+            return res.status(500).json({ error: error.message });
+        }
+    }
+
+
+
     module.exports = {
         createStudentTimeline,
         getStudentTimelinesByStudentId,
         updateStudentTimeline,
         deleteStudentTimeline,
+        bulkCreateStudentTimeline
     };
