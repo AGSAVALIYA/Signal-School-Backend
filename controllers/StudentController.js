@@ -10,6 +10,10 @@ const Sequelize = require('sequelize');
 const sequelize = require('../config/db');
 const moment = require('moment');
 const Attendance = require('../models/Attendance');
+//csv
+const csv = require('csvtojson');
+const CommonSubject = require('../models/CommonSubject');
+
 
 //Create a student
 // const createStudent = async (req, res) => {
@@ -105,7 +109,7 @@ const createStudent = async (req, res) => {
             throw new Error('Create a school first');
         }
 
-        const { name, age, dob, ClassId, address, GRNumber } = req.body;
+        const { name, age, dob, ClassId, address, GRNumber , aadharNumber, panCardNumber, fatherName, motherName, contactNumber_1, contactNumber_2, bloodGroup, gender } = req.body;
 
         if (!name || !age || !ClassId) {
             throw new Error('All fields are required');
@@ -118,7 +122,22 @@ const createStudent = async (req, res) => {
         if (GRNumber) {
             // Create student with provided GRNumber
             const student = await Student.create({
-                name, age, AcademicYearId, ClassId, SchoolId: schoolId, address, dob, GRNumber
+                name, 
+                age, 
+                AcademicYearId, 
+                ClassId, 
+                SchoolId: schoolId, 
+                address, 
+                dob, 
+                GRNumber,
+                aadharNumber,
+                panCardNumber,
+                fatherName,
+                motherName,
+                contactNumber_1,
+                contactNumber_2,
+                bloodGroup,
+                gender
             });
             return res.status(201).json({ message: 'Student created successfully', student });
         }
@@ -139,7 +158,22 @@ const createStudent = async (req, res) => {
         const newNumericPart = lastStudent ? parseInt(lastStudent.GRNumber.split(separator)[1]) + 1 : 1;
         const newGRNumber = `${schoolPrefix}${schoolId}${separator}${newNumericPart}`;
         const student = await Student.create({
-            name, age, AcademicYearId, ClassId, SchoolId: schoolId, address, dob, GRNumber: newGRNumber
+            name, 
+            age, 
+            AcademicYearId, 
+            ClassId, 
+            SchoolId: schoolId, 
+            address, 
+            dob, 
+            GRNumber: newGRNumber,
+            aadharNumber,
+            panCardNumber,
+            fatherName,
+            motherName,
+            contactNumber_1,
+            contactNumber_2,
+            bloodGroup,
+            gender
         });
 
         return res.status(201).json({ message: 'Student created successfully', student });
@@ -272,10 +306,16 @@ const getStudentById = async (req, res) => {
         }
 
         const studentId = req.params.id;
+
+
         const student = await Student.findOne({
             where: { id: studentId, SchoolId: schoolId },
-            include: [{ model: Class, attributes: ['name', 'id'], include: [{ model: Subject, attributes: ['name', 'id'] }] }]
+            include: [
+                { model: Class, attributes: ['name', 'id'], include: [{ model: Subject, attributes: ['name', 'id'] }] },
+                { model: CommonSubject, attributes: ['name', 'id'] }
+            ]
         });
+
 
         const Subjects = await student.getSubjects();
         student.dataValues.Subjects = Subjects;
@@ -303,6 +343,51 @@ const updateStudent = async (req, res) => {
         const dob = req.body.dob;
         const ClassId = req.body.ClassId;
         const address = req.body.address;
+        const aadharNumber = req.body.aadharNumber;
+        const panCardNumber = req.body.panCardNumber;
+        const fatherName = req.body.fatherName;
+        const motherName = req.body.motherName;
+        const contactNumber_1= req.body.contactNumber_1;
+        const contactNumber_2 = req.body.contactNumber_2;
+        const bloodGroup = req.body.bloodGroup;
+        const gender = req.body.gender;
+
+        let CommonSubjects = req.body.CommonSubjects;
+        if(CommonSubjects){
+            //keep id
+            CommonSubjects = CommonSubjects.map((subject) => subject.id);
+        }
+
+        // aadharNumber: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   panCardNumber: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   fatherName: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   motherName: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   contactNumber: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   gender: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   },
+        //   bloodGroup: {
+        //     type: DataTypes.STRING,
+        //     allowNull: true,
+        //   }
+        
+
 
         if (!name || !age || !ClassId) {
             throw new Error('Something went wrong');
@@ -313,7 +398,22 @@ const updateStudent = async (req, res) => {
             ClassId: ClassId,
             address: address,
             dob: dob,
+            aadharNumber: aadharNumber,
+            panCardNumber: panCardNumber,
+            fatherName: fatherName,
+            motherName: motherName,
+            contactNumber_1: contactNumber_1,
+            contactNumber_2: contactNumber_2,
+            bloodGroup: bloodGroup,
+            gender: gender  
         }, { where: { id: studentId } });
+
+
+        if (CommonSubjects) {
+            const student = await Student.findOne({ where: { id: studentId } });
+            await student.setCommonSubjects(CommonSubjects);
+        }
+
         return res.status(201).json({ message: 'Student updated successfully', student });
 
     } catch (error) {
@@ -421,7 +521,95 @@ const searchStudentNames = async (req, res) => {
     }
 };
 
+//get sample csv for add students   
+const getSampleCsv = async (req, res) => {
+    try {
+        //sample csv for students TEST sTUDENT, 10, 15/05/2014, mUMBAI
+        const csv = `name,age,dob,address\nTest Student,10,15/05/2014,Mumbai`;
+        let classId = req.params.classId;
+        if (!classId) {
+            throw new Error('Class ID is required');
+        }
+        const classDetails = await Class.findOne({ where: { id: classId } });
+        if (!classDetails) {
+            throw new Error('Class not found');
+        }
+        //if class name contains spaces replace with underscore
+        const className = classDetails.name.replace(/\s/g, '_');
+        res.setHeader('Content-disposition', 'attachment; filename=`Students_of_${className}.csv`');
+        res.set('Content-Type', 'text/csv');
+        res.status(200).send(csv);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
 
+
+const getStudentsFromCsv = async (req, res) => {
+    try {
+        if (!req.admin && !req.teacher) {
+            throw new Error('You are not authorized to access this route');
+        }
+        const file = req.file;
+        const classId = req.params.classId;
+        if (!classId) {
+            throw new Error('Class ID is required');
+        }
+        const classDetails = await Class.findOne({ where: { id: classId } });
+        if (!classDetails) {
+            throw new Error('Class not found');
+        }
+        const schoolId = req.currentSchool;
+        if (!schoolId) {
+            throw new Error('Create a school first');
+        }
+        const academicYearId = classDetails.AcademicYearId;
+        const data = await csv().fromFile(file.path);
+        let students = [];
+        for (let i = 0; i < data.length; i++) {
+            let student = data[i];
+            //date is in format dd/mm/yyyy
+            let dob = student.dob;
+            let newDob = moment(dob, 'DD/MM/YYYY').format('YYYY-MM-DD');
+            // const studentData = {
+            //     name: student.name,
+            //     age: student.age,
+            //     dob: newDob,
+            //     address: student.address,
+            //     ClassId: classId,
+            //     SchoolId: schoolId,
+            //     AcademicYearId: academicYearId
+            // };
+            // students.push(studentData);
+
+            //GR NUMBER LOGIC
+            const schoolPrefix = 'SCH'; // Adjust as needed
+            const separator = '-'; // Adjust as needed
+
+            const lastStudent = await Student.findOne({
+                where: { SchoolId: schoolId },
+                order: [sequelize.literal('CAST(SUBSTRING("GRNumber" FROM \'\\d+$\') AS INTEGER) DESC')],
+            });
+            const newNumericPart = lastStudent ? parseInt(lastStudent.GRNumber.split(separator)[1]) + 1 : 1;
+            const newGRNumber = `${schoolPrefix}${schoolId}${separator}${newNumericPart}`;
+            const studentData = {
+                name: student.name,
+                age: student.age,
+                dob: newDob,
+                address: student.address,
+                ClassId: classId,
+                SchoolId: schoolId,
+                AcademicYearId: academicYearId,
+                GRNumber: newGRNumber
+            };
+            students.push(studentData);
+        }
+        const createdStudents = await Student.bulkCreate(students);
+        return res.status(201).json({ message: 'Students created successfully', createdStudents });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+}
 
 
 module.exports = {
@@ -432,5 +620,7 @@ module.exports = {
     deleteStudent,
     getAllStudentsByClassId,
     searchStudentNames,
-    addAvatar
+    addAvatar,
+    getSampleCsv,
+    getStudentsFromCsv
 }

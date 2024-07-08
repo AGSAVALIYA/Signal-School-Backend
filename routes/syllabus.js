@@ -8,8 +8,8 @@ router.post('/syllabus/add/:subjectId',tokenVerify, SyllabusController.addSyllab
 router.put('/syllabus/update/:chapterId', tokenVerify,SyllabusController.editChapter);
 router.delete('/syllabus/delete/:chapterId', tokenVerify,SyllabusController.deleteChapter);
 router.get('/syllabus/getFull' ,tokenVerify, SyllabusController.getFullForSchool);
-
-
+router.post('/syllabus/markTopicAsCompleted/:topicId', tokenVerify,SyllabusController.markTopicAsCompleted);
+router.post('/syllabus/unMarkTopicAsCompleted/:topicId', tokenVerify,SyllabusController.unMarkTopicAsCompleted);
 
 
 module.exports = router;

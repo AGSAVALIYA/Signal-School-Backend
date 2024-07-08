@@ -12,6 +12,7 @@ const sequelize = require('../config/db');
 const Attendance = require('./Attendance');
 const Chapter = require('./Chapter');
 const Topic = require('./Topic');
+const CommonSubject = require('./CommonSubject');
 
 
 
@@ -53,11 +54,24 @@ Subject.belongsTo(School);
 AcademicYear.hasMany(Class);
 Class.belongsTo(AcademicYear);
 
+
+
 Class.hasMany(Student);
 Student.belongsTo(Class);
 
 Class.hasMany(Subject);
 Subject.belongsTo(Class);
+
+//CommonSubject 
+AcademicYear.hasMany(CommonSubject);
+CommonSubject.belongsTo(AcademicYear);
+
+School.hasMany(CommonSubject);
+CommonSubject.belongsTo(School);
+
+//Sudents can have CommonSubjects
+Student.belongsToMany(CommonSubject, { through: 'StudentCommonSubject' });
+CommonSubject.belongsToMany(Student, { through: 'StudentCommonSubject' });
 
 
 Teacher.belongsToMany(School, { through: 'TeacherSchool' });
@@ -95,6 +109,12 @@ Chapter.belongsTo(Subject);
 
 Chapter.hasMany(Topic);
 Topic.belongsTo(Chapter);
+
+//teacher completes topic 
+Teacher.hasMany(Topic , { foreignKey: 'completedBy' });
+Topic.belongsTo(Teacher , { foreignKey: 'completedBy' });
+
+
 
 
 
