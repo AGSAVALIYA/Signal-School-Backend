@@ -11,6 +11,7 @@ module.exports = async (req, res, next) => {
             throw new Error('You are not authorized to access this route');
         }
         req.admin = admin;
+        req.user = "admin";
         next();
     } catch (error) {
         res.status(401).json({ error: error.message });

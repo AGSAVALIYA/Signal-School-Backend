@@ -28,7 +28,38 @@ const Student = sequelize.define('Student', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-
+  aadharNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  panCardNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  fatherName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  motherName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  contactNumber_1: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  contactNumber_2: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  gender: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  bloodGroup: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  }
 });
 
 Student.belongsTo(AcademicYear);

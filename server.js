@@ -37,6 +37,8 @@ const StudentTimelineRoute = require('./routes/studenttimeline');
 const ReportRoute = require('./routes/report');
 const AttendanceRoute = require('./routes/attendance');
 const SyllabusRoute = require('./routes/syllabus');
+const CommonSubjectRoute = require('./routes/commonsubject');
+const DashboardRoute = require('./routes/dashboard');   
 
 
 app.use('/', AuthRoute);
@@ -51,6 +53,9 @@ app.use('/', StudentTimelineRoute);
 app.use('/', ReportRoute);
 app.use('/', AttendanceRoute);
 app.use('/', SyllabusRoute);
+app.use('/', CommonSubjectRoute);
+app.use('/', DashboardRoute);
+
 
 app.get('/', (req, res) => {
     res.send('Signal School API');

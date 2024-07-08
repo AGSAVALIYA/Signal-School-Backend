@@ -96,13 +96,6 @@ const createStudentTimeline = async (req, res) => {
                     }
                 }
             }
-
-
-
-
-
-
-
             return res.status(201).json({ message: 'Student timeline created successfully', studentTimeline });
         } catch (error) {
             return res.status(500).json({ error: error.message });
@@ -197,13 +190,13 @@ const getStudentTimelinesByStudentId = async (req, res) => {
 
     const bulkCreateStudentTimeline = async (req, res) => {
         try {
-            const classId = req.params.classId;
-            const studentIds = req.body.studentIds;
-            const attendenceDate = req.body.attendenceDate;
-            const progress = req.body.progress;
-            const subjects = req.body.subjects;
+            let classId = req.params.classId;
+            let studentIds = req.body.studentIds;
+            let attendenceDate = req.body.attendenceDate;
+            let progress = req.body.progress;
+            let subjects = req.body.subjects;
 
-            if (!classId || !studentIds || !attendenceDate || !progress || !subjects) {
+            if (!classId || !studentIds || !attendenceDate || !subjects) {
                 return res.status(400).json({ error: 'Please provide all required fields' });
             }
 
@@ -211,6 +204,10 @@ const getStudentTimelinesByStudentId = async (req, res) => {
             //convert to json and int
             subjects = JSON.parse(subjects);
             subjects = subjects.map((subject) => parseInt(subject));
+
+            studentIds = JSON.parse(studentIds);
+            studentIds = studentIds.map((studentId) => parseInt(studentId));
+
 
             // attendenceDate = new Date(attendenceDate);
             attendenceDate = moment(attendenceDate).format('YYYY-MM-DD');
@@ -226,6 +223,7 @@ const getStudentTimelinesByStudentId = async (req, res) => {
                     date: attendenceDate,
                     progress,
                     StudentId: student.id,
+                    attendanceStatus: 'present',
                 }))
             );
 

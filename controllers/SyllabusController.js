@@ -3,6 +3,7 @@ const Class = require("../models/Class");
 const School = require("../models/School");
 const Subject = require("../models/Subject");
 const Topic = require("../models/Topic");
+const Teacher = require("../models/Teacher");
 
 
 
@@ -12,7 +13,11 @@ const getSyllabus = async (req, res) => {
         const chapters = await Chapter.findAll({
             where: { SubjectId: subjectId },
             include: {
-                model: Topic
+                model: Topic,
+                include: {
+                    model: Teacher,
+                    attributes: ['id', 'name']
+                }
             }
         });
         
@@ -110,12 +115,25 @@ const getFullForSchool = async (req, res) => {
                 include: {
                     model: Chapter,
                     include: {
-                        model: Topic
+                        model: Topic,
+                        include: {
+                            model: Teacher,
+                            attributes: ['id', 'name']
+                        }
                     }
                 }
             }
         });
-
+        //SORT cHAPTER IN ASCENDING ORDER OF ID AND TOPICS IN ASCENDING ORDER OF ID
+        classes.forEach((classItem) => {
+            classItem.Subjects.forEach((subject) => {
+                subject.Chapters = subject.Chapters.sort((a, b) => a.id - b.id);
+                subject.Chapters.forEach((chapter) => {
+                    chapter.Topics = chapter.Topics.sort((a, b) => a.id - b.id);
+                });
+            });
+        }
+        );
         return res.status(200).json({ classes });
     }
     catch (error) {
@@ -138,11 +156,52 @@ const deleteChapter = async (req, res) => {
     }
 }
 
+const markTopicAsCompleted = async (req, res) => {
+    try {
+        const topicId = req.params.topicId;
+        let teacherId = req.body.teacherId;
+        let completedDate = req.body.completedDate;
+        completedDate = new Date(completedDate);
+        if (!teacherId) {
+            throw new Error('Teacher ID is required');
+        }
+        if (!completedDate) {
+            throw new Error('Completed date is required');
+        }
+        const topic = await Topic.findByPk(topicId);
+        //completedBy as Teacher Id
+        topic.completedBy = teacherId;
+        topic.completedDate = completedDate;
+        await topic.save();
+        return res.status(200).json({ message: 'Topic marked as completed successfully', topic });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message })
+    }
+}
+
+const unMarkTopicAsCompleted = async (req, res) => {
+    try {
+        const topicId = req.params.topicId;
+        const topic = await Topic.findByPk(topicId);
+        topic.completedBy = null;
+        topic.completedDate = null;
+        await topic.save();
+        return res.status(200).json({ message: 'Topic marked as incomplete successfully', topic });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message })
+    }
+}
+
+
 module.exports = {
     getSyllabus,
     addSyllabus,
     editChapter,
     getFullForSchool,
-    deleteChapter
+    deleteChapter,
+    markTopicAsCompleted,
+    unMarkTopicAsCompleted
 }
 
