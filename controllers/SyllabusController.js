@@ -4,6 +4,7 @@ const School = require("../models/School");
 const Subject = require("../models/Subject");
 const Topic = require("../models/Topic");
 const Teacher = require("../models/Teacher");
+const { createLog } = require("../utils/createLogs");
 
 
 
@@ -173,6 +174,13 @@ const markTopicAsCompleted = async (req, res) => {
         topic.completedBy = teacherId;
         topic.completedDate = completedDate;
         await topic.save();
+        if (req.user === 'teacher') {
+            createLog('teacher', 'Update', `Marked topic ${topic.content} as completed`, req.teacher.id );
+        }
+        if (req.user === 'admin') {
+            createLog('admin', `Marked topic ${topic.content} as completed`, req.admin.id );
+        }
+
         return res.status(200).json({ message: 'Topic marked as completed successfully', topic });
     }
     catch (error) {
@@ -187,6 +195,12 @@ const unMarkTopicAsCompleted = async (req, res) => {
         topic.completedBy = null;
         topic.completedDate = null;
         await topic.save();
+        if (req.user === 'teacher') {
+            createLog('teacher', 'Update', `Marked topic ${topic.content} as incomplete`, req.teacher.id );
+        }
+        if (req.user === 'admin') {
+            createLog('admin', `Marked topic ${topic.content} as incomplete`, req.admin.id );
+        }
         return res.status(200).json({ message: 'Topic marked as incomplete successfully', topic });
     }
     catch (error) {

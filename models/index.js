@@ -13,6 +13,7 @@ const Attendance = require('./Attendance');
 const Chapter = require('./Chapter');
 const Topic = require('./Topic');
 const CommonSubject = require('./CommonSubject');
+const Logs = require('./Logs');
 
 
 
@@ -115,7 +116,13 @@ Teacher.hasMany(Topic , { foreignKey: 'completedBy' });
 Topic.belongsTo(Teacher , { foreignKey: 'completedBy' });
 
 
+//teacher has many logs  
+Teacher.hasMany(Logs , { foreignKey: 'teacherId' });
+Logs.belongsTo(Teacher , { foreignKey: 'teacherId' });
 
+//admin has many logs
+Admin.hasMany(Logs , { foreignKey: 'adminId' });
+Logs.belongsTo(Admin , { foreignKey: 'adminId' });
 
 
 sequelize.sync({ alter: true })

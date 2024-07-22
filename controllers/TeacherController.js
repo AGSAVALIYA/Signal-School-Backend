@@ -2,6 +2,9 @@ const Teacher = require("../models/Teacher");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const School = require("../models/School");
+const { uploadFacultyAvatar } = require("../utils/s3Upload");
+const { createLog } = require("../utils/createLogs");
+const Logs = require("../models/Logs");
 
 //Teacher Login
 const teacherLogin = async (req, res) => {
@@ -24,6 +27,7 @@ const teacherLogin = async (req, res) => {
                 currentSchoolData: currentSchoolData[0],
                 schools: teacher.Schools
             }
+            createLog('teacher', 'Login', `${teacher.name} logged in`, teacher.id);
             res.status(200).json({message: 'Login successful', data: data, accessToken});
         } else {
             res.status(401).json({ error: 'Invalid email or password' });
@@ -102,6 +106,8 @@ const getAllTeachers = async (req, res) => {
                 id: teacher.id,
                 name: teacher.name,
                 email: teacher.email,
+                imageLink: teacher.imageLink,
+                contactNumber: teacher.contactNumber,
                 currentSchool: teacher.currentSchool,
             }
         });
@@ -123,7 +129,7 @@ const getTeacherById = async (req, res) => {
         }
         let teacher;
         if (req.admin) {
-            teacher = await Teacher.findOne({ where: { id: req.params.id, currentSchool: req.admin.currentSchool } });
+            teacher = await Teacher.findOne({ where: { id: req.params.id } });
         }
         //get teacher school from teacherschool table
 
@@ -143,21 +149,97 @@ const updateTeacher = async (req, res) => {
         const id = req.params.id;
         const name = req.body.name;
         const email = req.body.email;
-        const password = req.body.password;
+        const contactNumber = req.body.contactNumber;
         if (!name || !email) {
             throw new Error('All fields are required');
         }
         const teacher = await Teacher.update({
             name: name,
             email: email,
-            password: password,
-        }, { where: { id: id, currentSchool: req.admin.currentSchool } });
+            contactNumber: contactNumber
+        }, { where: { id: id } });
         return res.status(201).json({ message: 'Teacher updated successfully', teacher });
 
     } catch (error) {
         return res.status(500).json({ error: error.message })
     }
 }
+
+const updateTeacherPassword = async (req, res) => {
+    try {
+        if (!req.admin) {
+            throw new Error('You are not authorized to access this route');
+        }
+        const id = req.params.id;
+        let password = req.body.password;
+        let confirmPassword = req.body.confirmPassword;
+        if (!password || !confirmPassword) {
+            throw new Error('All fields are required');
+        }
+        if (password !== confirmPassword) {
+            throw new Error('Passwords do not match');
+        }
+        //hash password
+        const salt = await bcrypt.genSalt(10);
+        password = await bcrypt.hash(password, salt);
+
+        const teacher = await Teacher.update({
+            password: password
+        }, { where: { id: id } });
+
+        return res.status(201).json({ message: 'Teacher password updated successfully', teacher });
+
+    } catch (error) {
+        return res.status(500).json({ error: error.message })
+    }
+}
+
+const getTeacherLogs = async (req, res) => {
+    try {
+        if (!req.admin) {
+            throw new Error('You are not authorized to access this route');
+        }
+        const teacherId = req.params.id;
+        // const logs = await Logs.findAll({ where: { teacherId: teacherId } });
+        //order by created at desc
+        const logs = await Logs.findAll({ where: { teacherId: teacherId }, order: [['createdAt', 'DESC']] });
+        return res.status(200).json({ logs });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+}
+
+const addTeacherAvatar = async (req, res) => {
+    try {
+        const teacherId = req.params.id;
+        const file = req.file;
+        const teacher = await Teacher.findOne({ where: { id: teacherId } });
+        if (!teacher) {
+            throw new Error('Teacher not found');
+        }
+        
+        const data = await uploadFacultyAvatar(req, res, file, { facultyId: teacherId });
+
+        await Teacher.update(
+            {
+                imageLink: data.Location,
+            },
+            { where: { id: teacherId } }
+        );
+
+        if (req.teacher) {
+            createLog('teacher', 'Add Avatar', `Added photo of teacher ${teacher.name}`, req.teacher.id);
+        }
+        if (req.admin) {
+            createLog('admin', 'Add Avatar', `Added avatar of teacher ${teacher.name}`, req.admin.id);
+        }
+        res.json({ message: 'Image uploaded successfully', imageLink: data.Location });
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 
 //Delete a teacher
 const deleteTeacher = async (req, res) => {
@@ -180,5 +262,8 @@ module.exports = {
     getAllTeachers,
     getTeacherById,
     updateTeacher,
+    addTeacherAvatar,
+    updateTeacherPassword,
+    getTeacherLogs,
     deleteTeacher
 }

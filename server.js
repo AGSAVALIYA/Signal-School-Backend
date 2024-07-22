@@ -58,7 +58,7 @@ app.use('/', DashboardRoute);
 
 
 app.get('/', (req, res) => {
-    res.send('Signal School API');
+    res.send('Signal School API D220724');
 });
 
 const PORT = process.env.PORT || 3000;

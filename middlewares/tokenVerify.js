@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const Teacher = require('../models/Teacher');
+const School = require('../models/School');
 
 module.exports = async (req, res, next) => {
     try {
@@ -16,7 +17,18 @@ module.exports = async (req, res, next) => {
         }
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
         const admin = await Admin.findOne({ where: { email: decodedToken.email } });
-        const teacher = await Teacher.findOne({ where: { email: decodedToken.email } });
+        const teachers = await Teacher.findAll({ where: { email: decodedToken.email } , include: { model: School }});
+        // //find where school id = teacher.currentSchool
+        let teacher = null;
+        if (teachers.length > 0) {
+            // Assuming teachers is an array, we filter through each teacher
+            // and find the one where currentSchool matches the ID of one of their associated schools.
+            teacher = teachers.find(teacher => {
+                // Checking if any of the teacher's associated schools have an ID that matches currentSchool
+                return teacher.Schools.some(school => teacher.currentSchool === school.id);
+            });
+        }
+        
 
         if (!admin && !teacher) {
             // Only send the response here, and use return to exit the function
@@ -32,8 +44,6 @@ module.exports = async (req, res, next) => {
             req.teacher = teacher;
             req.currentSchool = teacher.currentSchool;
         }
-
-        // Call next() outside of the if conditions
         next();
     } catch (error) {
         // Log the error for debugging purposes
