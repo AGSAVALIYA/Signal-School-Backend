@@ -13,6 +13,7 @@ const Attendance = require('../models/Attendance');
 //csv
 const csv = require('csvtojson');
 const CommonSubject = require('../models/CommonSubject');
+const { createLog } = require('../utils/createLogs');
 
 
 //Create a student
@@ -139,6 +140,13 @@ const createStudent = async (req, res) => {
                 bloodGroup,
                 gender
             });
+
+            if (isTeacher) {
+                createLog('teacher', 'Create Student', `Created student ${name}`, req.teacher.id);
+            }
+            if (isAdmin) {
+                createLog('admin', 'Create Student', `Created student ${name}`, req.admin.id);
+            }
             return res.status(201).json({ message: 'Student created successfully', student });
         }
 
@@ -176,6 +184,13 @@ const createStudent = async (req, res) => {
             gender
         });
 
+        if (isTeacher) {
+            createLog('teacher', 'Create Student', `Created student ${name}`, req.teacher.id);
+        }
+        if (isAdmin) {
+            createLog('admin', 'Create Student', `Created student ${name}`, req.admin.id);
+        }
+        
         return res.status(201).json({ message: 'Student created successfully', student });
 
     } catch (error) {
@@ -358,37 +373,6 @@ const updateStudent = async (req, res) => {
             CommonSubjects = CommonSubjects.map((subject) => subject.id);
         }
 
-        // aadharNumber: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   panCardNumber: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   fatherName: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   motherName: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   contactNumber: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   gender: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   },
-        //   bloodGroup: {
-        //     type: DataTypes.STRING,
-        //     allowNull: true,
-        //   }
-        
-
-
         if (!name || !age || !ClassId) {
             throw new Error('Something went wrong');
         }
@@ -412,6 +396,13 @@ const updateStudent = async (req, res) => {
         if (CommonSubjects) {
             const student = await Student.findOne({ where: { id: studentId } });
             await student.setCommonSubjects(CommonSubjects);
+        }
+
+        if (req.teacher) {
+            createLog('teacher', 'Update Student', `Updated student ${name}`, req.teacher.id);
+        }
+        if (req.admin) {
+            createLog('admin', 'Update Student', `Updated student ${name}`, req.admin.id);
         }
 
         return res.status(201).json({ message: 'Student updated successfully', student });
@@ -440,6 +431,12 @@ const addAvatar = async (req, res) => {
             { where: { id: studentId } }
         );
 
+        if (req.teacher) {
+            createLog('teacher', 'Add Avatar', `Added photo of student ${student.name}`, req.teacher.id);
+        }
+        if (req.admin) {
+            createLog('admin', 'Add Avatar', `Added avatar of student ${student.name}`, req.admin.id);
+        }
         res.json({ message: 'Image uploaded successfully', imageLink: data.Location });
     } catch (error) {
         console.error('Error uploading image:', error);
@@ -461,6 +458,8 @@ const deleteStudent = async (req, res) => {
 
         const studentId = req.params.id;
         const student = await Student.destroy({ where: { id: studentId } });
+
+        
         return res.status(201).json({ message: 'Student deleted successfully', student });
 
     } catch (error) {

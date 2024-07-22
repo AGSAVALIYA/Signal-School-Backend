@@ -76,7 +76,34 @@ const uploadImageToTimeline = (req, res,  keyData) => {
 
 
 
+const uploadFacultyAvatar = (req, res,file, keyData) => {
+  return new Promise((resolve, reject) => {
+    const upload = multer({
+      storage: multerS3({
+        s3: s3,
+        bucket: process.env.AWS_FACULTY_BUCKET,
+        key: function (req, file, cb) {
+          //INSIDE /images/avatar/file.extension
+          cb(null, `images/avatar/${keyData.facultyId}${path.extname(file.originalname)}`);
+        }
+      }),
+      fileFilter: function (req, file, cb) {
+        checkFileType(file, cb);
+      }
+    })
+    .single('avatar');
+    upload(req, res, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ Location: req.file.location }); 
+      }
+    });
+  });
+};
+
 module.exports = {
   uploadImageToAvatar,
-  uploadImageToTimeline
+  uploadImageToTimeline,
+  uploadFacultyAvatar
 };

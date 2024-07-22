@@ -6,6 +6,8 @@ const { uploadImageToTimeline } = require('../utils/s3Upload');
 const moment = require('moment');
 const Attendance = require('../models/Attendance');
 const Subject = require('../models/Subject');
+const { createLog } = require('../utils/createLogs');
+const Class = require('../models/Class');
 
 //CONFIG FOR THE UPLOAD
 dotenv.config();
@@ -96,6 +98,7 @@ const createStudentTimeline = async (req, res) => {
                     }
                 }
             }
+            createLog('teacher', 'Create', `Created a timeline for student ${student.name}`, req.teacher.id );
             return res.status(201).json({ message: 'Student timeline created successfully', studentTimeline });
         } catch (error) {
             return res.status(500).json({ error: error.message });
@@ -163,6 +166,8 @@ const getStudentTimelinesByStudentId = async (req, res) => {
 
             await studentTimeline.save();
 
+            createLog('admin', 'Update', `Updated a timeline for student ${studentTimeline.StudentId}`, req.admin.id );
+
             return res.status(200).json({ message: 'Student timeline updated successfully' });
         } catch (error) {
             return res.status(500).json({ error: error.message });
@@ -180,6 +185,8 @@ const getStudentTimelinesByStudentId = async (req, res) => {
             }
 
             await studentTimeline.destroy();
+
+            createLog('admin', 'Delete', `Deleted a timeline for student ${studentTimeline.StudentId}`, req.admin.id );
 
             return res.status(200).json({ message: 'Student timeline deleted successfully' });
         } catch (error) {
@@ -261,6 +268,9 @@ const getStudentTimelinesByStudentId = async (req, res) => {
                     }
                 }
             });
+
+            const classData = await Class.findOne({ where: { id: classId } });
+            createLog('teacher', 'Create', `Created a bulk timeline for students of class ${classData.name}`, req.teacher.id );
 
             return res.status(201).json({ message: 'Student timelines created successfully', studentTimelines });
         }

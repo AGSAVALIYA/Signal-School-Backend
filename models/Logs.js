@@ -16,4 +16,6 @@ const Logs = sequelize.define('Logs', {
         allowNull: false,
     }
 });
-O
+
+
+module.exports = Logs;
