@@ -17,7 +17,6 @@ module.exports = new Sequelize(
         logging: false,
         dialectOptions:{
             ssl:{
-                required:true,
                 rejectUnauthorized: false
             }
         }
