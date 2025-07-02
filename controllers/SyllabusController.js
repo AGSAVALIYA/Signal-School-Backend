@@ -1,3 +1,10 @@
+/**
+ * Syllabus Controller
+ * Handles all syllabus-related operations including chapters, topics, and completion tracking
+ * Manages CRUD operations for educational content structure
+ */
+
+// Import required models for syllabus management
 const Chapter = require("../models/Chapter");
 const Class = require("../models/Class");
 const School = require("../models/School");
@@ -6,18 +13,25 @@ const Topic = require("../models/Topic");
 const Teacher = require("../models/Teacher");
 const { createLog } = require("../utils/createLogs");
 
-
-
+/**
+ * Retrieve syllabus for a specific subject
+ * Gets all chapters and their topics for a given subject, including completion status
+ * @param {Object} req - Express request object with subjectId parameter
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with chapters and topics data
+ */
 const getSyllabus = async (req, res) => {
     try{ 
         const subjectId = req.params.subjectId;
+        
+        // Fetch all chapters for the subject with their topics and completion info
         const chapters = await Chapter.findAll({
             where: { SubjectId: subjectId },
             include: {
                 model: Topic,
                 include: {
                     model: Teacher,
-                    attributes: ['id', 'name']
+                    attributes: ['id', 'name'] // Include teacher details who completed the topic
                 }
             }
         });
@@ -29,12 +43,20 @@ const getSyllabus = async (req, res) => {
     }
 }
 
+/**
+ * Add new syllabus content (chapter with topics)
+ * Creates a new chapter and associated topics for a subject
+ * @param {Object} req - Express request object with subjectId and chapter data
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming syllabus creation
+ */
 const addSyllabus = async (req, res) => {
     try {
         const subjectId = req.params.subjectId;
         const chapterName = req.body.chapterName;
         const Topics = req.body.topics;
 
+        // Validate required fields
         if (!chapterName) {
             throw new Error('Chapter name is required');
         }
@@ -42,11 +64,13 @@ const addSyllabus = async (req, res) => {
             throw new Error('At least one topic is required');
         }
 
+        // Create new chapter
         const chapter = await Chapter.create({
             name: chapterName,
             SubjectId: subjectId
         });
 
+        // Create topics for the chapter
         Topics.forEach(async (topic) => {
             await Topic.create({
                 content: topic,
