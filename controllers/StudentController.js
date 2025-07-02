@@ -1,3 +1,10 @@
+/**
+ * Student Controller
+ * Handles all student-related operations including CRUD operations, enrollment, and data management
+ * Supports both individual and bulk operations for student management
+ */
+
+// Import required models and dependencies
 const Student = require('../models/Student');
 const AcademicYear = require('../models/AcademicYear');
 const Class = require('../models/Class');
@@ -10,13 +17,15 @@ const Sequelize = require('sequelize');
 const sequelize = require('../config/db');
 const moment = require('moment');
 const Attendance = require('../models/Attendance');
-//csv
-const csv = require('csvtojson');
+const csv = require('csvtojson'); // For CSV file processing
 const CommonSubject = require('../models/CommonSubject');
 const { createLog } = require('../utils/createLogs');
 
-
-//Create a student
+/**
+ * NOTE: The following commented code shows an alternative implementation
+ * for student creation. The current implementation includes additional features
+ * like GR Number generation and enhanced validation.
+ */
 // const createStudent = async (req, res) => {
 //     try {
 //         if (!req.user) {
