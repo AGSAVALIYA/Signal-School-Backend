@@ -1,38 +1,23 @@
+// Import Sequelize ORM for PostgreSQL database operations
 const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
+
+// Load environment variables for database configuration
 dotenv.config();
 
-
-// const sequelize = new Sequelize(process.env.POSTGRES_URL, {
-//   logging: false,
-//   dialect: 'postgres',
-//   dialectOptions: {
-//     ssl: true
-//   }
-// });
-
+/**
+ * Database Configuration
+ * Creates a new Sequelize instance for connecting to PostgreSQL database
+ * Configured with SSL for secure connections to cloud databases
+ */
 module.exports = new Sequelize(
-    process.env.POSTGRES_URL,
+    process.env.POSTGRES_URL, // Database connection URL from environment variables
     {
-        logging: false,
-        dialectOptions:{
-            ssl:{
-                rejectUnauthorized: false
+        logging: false, // Disable SQL query logging for cleaner console output
+        dialectOptions: {
+            ssl: {
+                rejectUnauthorized: false // Allow self-signed SSL certificates for development
             }
         }
     }
 );
-
-
-// postgres://postgres:ssdbaws2024@database-1.cpwce2yok4yf.ap-south-1.rds.amazonaws.com/signal-school
-
-// module.exports = new Sequelize(
-//     process.env.POSTGRES_URL,
-//     {
-//         logging: false,
-//         dialectOptions:{
-            
-//         }
-//     }
-// );
-
