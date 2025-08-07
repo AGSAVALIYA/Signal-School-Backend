@@ -12,9 +12,18 @@ const teacherLogin = async (req, res) => {
         const { email, password } = req.body;
         //Teacher.belongsToMany(School, { through: 'TeacherSchool' });
         
-        const teacher = await Teacher.findOne({ where: { email: email }, include: { model: School} });
+        const teacher = await Teacher.findOne({ 
+            where: { email: email, status: 'active' }, 
+            include: { model: School} 
+        });
+        
+        //check if teacher exists and is active
+        if (!teacher) {
+            return res.status(401).json({ error: 'Invalid email or password, or account is inactive' });
+        }
+        
         //update teacher password by bycrypting
-        if (teacher && await bcrypt.compare(password, teacher.password)) {
+        if (await bcrypt.compare(password, teacher.password)) {
             const accessToken = jwt.sign({ email: teacher.email, id: teacher.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE_TIME });
             // res.status(200).json({ accessToken });
             //creent school data is school data from teacher.school where teacher.currentSchool = teacher.school.id
@@ -90,8 +99,9 @@ const getAllTeachers = async (req, res) => {
             throw new Error('Admin does not have a current school');
         }
 
-        // Find all teachers associated with the current school
+        // Find all active teachers associated with the current school
         const teachers = await Teacher.findAll({
+            where: { status: 'active' },
             include: [{
                 model: School,
                 through: 'TeacherSchool',
@@ -109,9 +119,52 @@ const getAllTeachers = async (req, res) => {
                 imageLink: teacher.imageLink,
                 contactNumber: teacher.contactNumber,
                 currentSchool: teacher.currentSchool,
+                status: teacher.status,
             }
         });
 
+
+        return res.status(200).json({ teachers: teacherData });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+//Retrieve list of inactive teachers
+const getInactiveTeachers = async (req, res) => {
+    try {
+        if (!req.admin) {
+            throw new Error('You are not authorized to access this route');
+        }
+
+        if (!req.admin.currentSchool) {
+            throw new Error('Admin does not have a current school');
+        }
+
+        // Find all inactive teachers associated with the current school
+        const teachers = await Teacher.findAll({
+            where: { status: 'inactive' },
+            include: [{
+                model: School,
+                through: 'TeacherSchool',
+                where: {
+                    id: req.admin.currentSchool,
+                },
+            }],
+        });
+
+        const teacherData = teachers.map(teacher => {
+            return {
+                id: teacher.id,
+                name: teacher.name,
+                email: teacher.email,
+                imageLink: teacher.imageLink,
+                contactNumber: teacher.contactNumber,
+                currentSchool: teacher.currentSchool,
+                status: teacher.status,
+            }
+        });
 
         return res.status(200).json({ teachers: teacherData });
     }
@@ -241,15 +294,64 @@ const addTeacherAvatar = async (req, res) => {
 };
 
 
-//Delete a teacher
+//Delete a teacher (soft delete - mark as inactive)
 const deleteTeacher = async (req, res) => {
     try {
         if (!req.admin) {
             throw new Error('You are not authorized to access this route');
         }
         const id = req.params.id;
-        const teacher = await Teacher.destroy({ where: { id: id, currentSchool: req.admin.currentSchool } });
-        return res.status(201).json({ message: 'Teacher deleted successfully', teacher });
+        
+        // Check if teacher exists and belongs to current school
+        const existingTeacher = await Teacher.findOne({ 
+            where: { id: id, currentSchool: req.admin.currentSchool } 
+        });
+        
+        if (!existingTeacher) {
+            throw new Error('Teacher not found or does not belong to current school');
+        }
+        
+        // Mark teacher as inactive instead of destroying
+        const teacher = await Teacher.update(
+            { status: 'inactive' }, 
+            { where: { id: id, currentSchool: req.admin.currentSchool } }
+        );
+        
+        createLog('admin', 'Delete Teacher', `Marked teacher ${existingTeacher.name} as inactive`, req.admin.id);
+        
+        return res.status(200).json({ message: 'Teacher marked as inactive successfully', teacher });
+
+    } catch (error) {
+        return res.status(500).json({ error: error.message })
+    }
+}
+
+//Reactivate a teacher
+const reactivateTeacher = async (req, res) => {
+    try {
+        if (!req.admin) {
+            throw new Error('You are not authorized to access this route');
+        }
+        const id = req.params.id;
+        
+        // Check if teacher exists and belongs to current school
+        const existingTeacher = await Teacher.findOne({ 
+            where: { id: id, currentSchool: req.admin.currentSchool, status: 'inactive' } 
+        });
+        
+        if (!existingTeacher) {
+            throw new Error('Inactive teacher not found or does not belong to current school');
+        }
+        
+        // Mark teacher as active
+        const teacher = await Teacher.update(
+            { status: 'active' }, 
+            { where: { id: id, currentSchool: req.admin.currentSchool } }
+        );
+        
+        createLog('admin', 'Reactivate Teacher', `Reactivated teacher ${existingTeacher.name}`, req.admin.id);
+        
+        return res.status(200).json({ message: 'Teacher reactivated successfully', teacher });
 
     } catch (error) {
         return res.status(500).json({ error: error.message })
@@ -260,10 +362,12 @@ module.exports = {
     teacherLogin,
     createTeacher,
     getAllTeachers,
+    getInactiveTeachers,
     getTeacherById,
     updateTeacher,
     addTeacherAvatar,
     updateTeacherPassword,
     getTeacherLogs,
-    deleteTeacher
+    deleteTeacher,
+    reactivateTeacher
 }
