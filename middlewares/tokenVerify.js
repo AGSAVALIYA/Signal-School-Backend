@@ -42,9 +42,9 @@ module.exports = async (req, res, next) => {
         // Look up admin user by email from token
         const admin = await Admin.findOne({ where: { email: decodedToken.email } });
         
-        // Look up teacher users by email with associated schools
+        // Look up active teacher users by email with associated schools
         const teachers = await Teacher.findAll({ 
-            where: { email: decodedToken.email }, 
+            where: { email: decodedToken.email, status: 'active' }, 
             include: { model: School }
         });
         

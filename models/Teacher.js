@@ -38,6 +38,11 @@ const Teacher = sequelize.define('Teacher', {
     type: DataTypes.INTEGER,
     allowNull: false, // ID of the school where teacher is currently active
   },
+  status: {
+    type: DataTypes.ENUM('active', 'inactive'),
+    allowNull: false,
+    defaultValue: 'active', // Teacher is active by default
+  }
 });
 
 // Define many-to-many relationship with schools (teachers can work at multiple schools)

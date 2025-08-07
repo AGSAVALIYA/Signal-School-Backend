@@ -10,7 +10,7 @@ module.exports = async (req, res, next) => {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
         const admin = await Admin.findOne({ where: { email: decodedToken.email } });
-        const teacher = await Teacher.findOne({ where: { email: decodedToken.email } });
+        const teacher = await Teacher.findOne({ where: { email: decodedToken.email, status: 'active' } });
         if (!admin && !teacher) {
             throw new Error('You are not authorized to access this route');
         }
