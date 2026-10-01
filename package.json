@@ -1,35 +1,59 @@
 {
-  "name": "signal-school-new",
-  "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
-  "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js"
+  "name": "signal-school-api",
+  "version": "2.0.0",
+  "private": true,
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
   },
-  "author": "",
-  "license": "ISC",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "db:migrate": "node scripts/migrate.js up",
+    "db:rollback": "node scripts/migrate.js down",
+    "db:seed": "node scripts/seed.js",
+    "create-owner": "node scripts/create-owner.js",
+    "migrate-legacy": "node scripts/migrate-legacy.js",
+    "test": "jest --runInBand",
+    "lint": "eslint src scripts tests",
+    "format": "prettier --write \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\""
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "globalSetup": "./tests/globalSetup.js",
+    "setupFiles": [
+      "./tests/env.js"
+    ],
+    "maxWorkers": 1
+  },
   "dependencies": {
-    "aws-sdk": "^2.1510.0",
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "csvtojson": "^2.0.10",
-    "dotenv": "^16.3.1",
-    "error": "^10.4.0",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "jspdf": "^2.5.1",
-    "moment": "^2.30.1",
-    "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
-    "multer-s3": "^3.0.1",
-    "multer-s3-v2": "^2.2.1",
-    "pg": "^8.11.3",
+    "@aws-sdk/client-s3": "^3.1144.0",
+    "@aws-sdk/s3-request-presigner": "^3.1144.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.33.0"
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "sequelize": "^6.37.8",
+    "sharp": "^0.35.5",
+    "umzug": "^3.8.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "^30.5.2",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.9.9",
+    "supertest": "^7.3.0"
   }
 }
