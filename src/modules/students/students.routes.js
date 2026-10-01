@@ -255,10 +255,8 @@ router.post('/students/:id/readmit', requirePerm('students.leave'), validate({ b
 const sectionsOf = (req) =>
   m.ClassSection.findAll({
     where: { academicYearId: req.year.id },
-    order: [
-      ['sortOrder', 'ASC'],
-      ['name', 'ASC'],
-    ],
+    include: [{ model: m.Grade, attributes: [] }],
+    order: m.SECTION_ORDER,
   });
 
 router.get('/students-import/template', requirePerm('students.import'), yearScope(), async (req, res) => {

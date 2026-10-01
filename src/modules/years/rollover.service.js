@@ -21,10 +21,8 @@ async function buildPlan(schoolId, sourceYearId, { name, startDate, endDate }) {
   const grades = new Map((await m.Grade.findAll({ where: { schoolId } })).map((g) => [g.id, g]));
   const sections = await m.ClassSection.findAll({
     where: { academicYearId: source.id },
-    order: [
-      ['sortOrder', 'ASC'],
-      ['name', 'ASC'],
-    ],
+    include: [{ model: m.Grade, attributes: [] }],
+    order: m.SECTION_ORDER,
   });
   const enrollments = await m.Enrollment.findAll({
     where: { academicYearId: source.id, status: 'active' },
@@ -34,6 +32,8 @@ async function buildPlan(schoolId, sourceYearId, { name, startDate, endDate }) {
 
   const targets = sections.map((s) => ({ key: `src-${s.id}`, sourceId: s.id, gradeId: s.gradeId, name: s.name, include: true }));
   const sectionById = new Map(sections.map((s) => [s.id, s]));
+  const position = new Map(sections.map((s, i) => [s.id, i]));
+  enrollments.sort((a, b) => position.get(a.classSectionId) - position.get(b.classSectionId)); // stable: names stay sorted within a class
   const promotions = enrollments.map((e) => {
     const from = sectionById.get(e.classSectionId);
     const grade = grades.get(from.gradeId);

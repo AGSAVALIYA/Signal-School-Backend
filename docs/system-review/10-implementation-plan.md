@@ -12,6 +12,8 @@
 
 ---
 
+> **Status:** Phases 1–6 implemented in round 2; Phase 7 partly. See the status table in [README](README.md#implementation-status-round-2).
+
 ## Global constraints
 
 1. **Never test against production data.** Use a seeded test DB. Production migrations only after a backup.
