@@ -42,4 +42,12 @@ m.ReportEntry.belongsTo(m.Subject, { foreignKey: 'subjectId' });
 m.ReportEntry.belongsTo(m.Enrollment, { foreignKey: 'enrollmentId' });
 m.AuditLog.belongsTo(m.User, { foreignKey: 'userId' });
 
-module.exports = { ...m, sequelize };
+// Canonical class order everywhere (Balwadi, Std 1, Std 2 …): by class level, then section.
+// Use with `include: [{ model: Grade, attributes: [] }]` (or any Grade include).
+const SECTION_ORDER = [
+  [m.Grade, 'sortOrder', 'ASC'],
+  ['sortOrder', 'ASC'],
+  ['name', 'ASC'],
+];
+
+module.exports = { ...m, sequelize, SECTION_ORDER };

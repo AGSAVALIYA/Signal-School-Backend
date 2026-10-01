@@ -1,6 +1,21 @@
 # Signal School — Full System Review, Test Plan and Improvement Plan
 
-**Date:** 1 Oct 2026 · **Scope:** `Signal-School-Backend` @ `342ea53` and `Signal-School-Frontend` @ `e31962f` · **Round:** 1 (inventory and plan; nothing executed yet)
+**Date:** 1 Oct 2026 · **Scope:** `Signal-School-Backend` @ `342ea53` and `Signal-School-Frontend` @ `e31962f` · **Round:** 1 (inventory and plan) → round 2 implemented, see status below
+
+## Implementation status (round 2)
+
+v2 is implemented on branch `ccr-61b11ce9-g6fan3` in both repos (rewrite rather than incremental patching; Phase 1 fixes are covered by the rewrite).
+
+| Phase | Status | Where |
+|---|---|---|
+| 0 Test round | Replaced by automated tests: 177 API tests (auth, scope/permission matrix, students, attendance, years/rollover, syllabus, legacy migration) + frontend locale/unit tests + browser smoke run | `tests/`, frontend `src/**/*.test.js` |
+| 1 Safety fixes | Done: hashed rotating refresh tokens, lockout, school/year scoping on every route, teacher-section checks, validation, coded errors | `src/middlewares`, `src/modules/auth` |
+| 2 Foundations | Done: feature folders, SQL migrations, API client, i18next en/hi/mr/gu | both repos |
+| 3 Data model v2 + teacher core | Done: students + enrollments, Today screen, one-tap attendance, diary | `0001-init.up.sql`, `features/today`, `features/attendance` |
+| 4 Academic year + syllabus | Done: year switcher, read-only past years with timed unlock, rollover wizard (idempotent, single transaction), per-year topic completion | `modules/years`, `features/years`, `modules/syllabus` |
+| 5 Reports & oversight | Done: monthly register, report cards, dashboard, activity log | `modules/dashboard`, `features/marks`, `features/audit` |
+| 6 Offline & performance | Done: PWA, offline attendance queue (newest mark wins), indexed queries, code-split routes | frontend `vite.config.js`, `offlineQueue.js` |
+| 7 Extras | Partly: activities, holidays, Excel import, legacy data migration (`npm run migrate-legacy`). **Not done:** SMS to parents, TC/leaving certificate, ID cards, mid-day meal, staff attendance | — |
 
 ## Why this exists
 Teachers using Signal School are mostly **not technical**. Three goals drive this review:

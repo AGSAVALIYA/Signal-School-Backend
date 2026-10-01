@@ -34,6 +34,15 @@ test('preview maps Std 1 A → Std 2 A and graduates the final grade', async () 
   expect(dev).toMatchObject({ action: 'graduate', targetKey: null });
 });
 
+test('preview lists classes and students by class level, not alphabetically', async () => {
+  await A.s1.update({ name: 'Zeta' }); // would sort last by name
+  const { data } = (await preview()).body;
+  expect(data.sections.map((s) => s.sourceId)).toEqual([A.s1.id, A.s2.id]);
+  const order = data.promotions.map((p) => p.fromSectionId);
+  expect(order).toEqual([...order].sort((x, y) => (x === A.s1.id ? 0 : 1) - (y === A.s1.id ? 0 : 1)));
+  expect(order[0]).toBe(A.s1.id);
+});
+
 test('rollover copies structure without completions and promotes students in one go', async () => {
   const plan = (await preview()).body.data;
   plan.promotions.find((p) => p.studentName === 'Bala A').action = 'detain';

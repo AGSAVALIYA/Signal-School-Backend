@@ -3,7 +3,18 @@ const { z } = require('zod');
 const { QueryTypes } = require('sequelize');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
-const { Grade, ClassSection, Subject, ActivityGroup, ActivityMember, Enrollment, TeacherAssignment, User, sequelize } = require('../../db/models');
+const {
+  Grade,
+  ClassSection,
+  Subject,
+  ActivityGroup,
+  ActivityMember,
+  Enrollment,
+  TeacherAssignment,
+  User,
+  sequelize,
+  SECTION_ORDER,
+} = require('../../db/models');
 const audit = require('../../utils/audit');
 const { findInSchool, assertYearWritable } = require('../../utils/scope');
 const { conflict, badRequest } = require('../../utils/errors');
@@ -70,13 +81,7 @@ router.get('/sections', yearScope(), async (req, res) => {
       { model: Subject, attributes: ['id', 'name', 'nameTranslations', 'sortOrder'] },
       { model: TeacherAssignment, include: [{ model: User, attributes: ['id', 'name'] }] },
     ],
-    order: [
-      [Grade, 'sortOrder', 'ASC'],
-      ['sortOrder', 'ASC'],
-      ['name', 'ASC'],
-      [Subject, 'sortOrder', 'ASC'],
-      [Subject, 'name', 'ASC'],
-    ],
+    order: [...SECTION_ORDER, [Subject, 'sortOrder', 'ASC'], [Subject, 'name', 'ASC']],
   });
   const counts = await sequelize.query(
     `SELECT class_section_id AS id, count(*)::int AS n FROM enrollments WHERE academic_year_id = :y AND status = 'active' GROUP BY 1`,
