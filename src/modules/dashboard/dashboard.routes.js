@@ -22,7 +22,9 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
               (SELECT count(*) FROM user_schools us JOIN users u ON u.id = us.user_id AND u.status = 'active' WHERE us.school_id = :s AND us.role = 'teacher')::int AS teachers,
               (SELECT count(*) FROM class_sections WHERE academic_year_id = :y)::int AS sections,
               (SELECT count(*) FROM subjects WHERE academic_year_id = :y)::int AS subjects,
-              (SELECT count(*) FROM grades WHERE school_id = :s)::int AS grades`,
+              (SELECT count(*) FROM grades WHERE school_id = :s)::int AS grades,
+              (SELECT count(*) FROM (SELECT DISTINCT ON (h.student_id) h.needs_follow_up FROM health_checks h JOIN students st ON st.id = h.student_id
+                 WHERE h.school_id = :s AND st.status = 'active' ORDER BY h.student_id, h.checked_on DESC, h.id DESC) x WHERE x.needs_follow_up)::int AS "healthFollowUps"`,
       { s, y },
     ),
     q(
@@ -31,7 +33,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
       { s, y, from: addDays(date, -14) },
     ),
     q(
-      `SELECT st.id, st.name, cs.name AS "sectionName", st.guardian_phone AS "guardianPhone",
+      `SELECT st.id, st.name, cs.name AS "sectionName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage",
               round(100.0 * count(*) FILTER (WHERE a.status IN ('P','LATE')) / count(*))::int AS percent, count(*)::int AS marked
        FROM attendance a JOIN students st ON st.id = a.student_id JOIN class_sections cs ON cs.id = a.class_section_id
        WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND st.status = 'active'

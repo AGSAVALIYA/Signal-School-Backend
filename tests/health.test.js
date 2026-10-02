@@ -65,3 +65,15 @@ test('import dates: impossible days are invalid, real ones normalised', () => {
   expect(parseDate('2018-06-05')).toBe('2018-06-05');
   expect(parseDate('')).toBeNull();
 });
+
+test('dashboard counts children whose latest check-up needs a doctor, and absentees carry the guardian language', async () => {
+  await as(A.teacher).post(`/students/${A.students[2].student.id}/health`).send({ checkedOn: today(), notes: 'Eye check', needsFollowUp: true });
+  const res = await as(A.admin).get('/dashboard');
+  expect(res.body.data.counts.healthFollowUps).toBeGreaterThanOrEqual(1);
+  await A.students[0].student.update({ guardianPhone: '9876543210', guardianLanguage: 'mr' });
+  await as(A.teacher)
+    .put(`/attendance/sections/${A.s1.id}/${today()}`)
+    .send({ rows: [{ studentId: A.students[0].student.id, status: 'A' }] });
+  const t = await as(A.admin).get('/attendance/today');
+  expect(t.body.data.absentees[0]).toMatchObject({ guardianLanguage: 'mr', guardianPhone: '9876543210' });
+});
