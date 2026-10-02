@@ -65,6 +65,9 @@ Journeys: teacher takes attendance with one tap per child; language switch chang
 still fits a phone; clerk records a health check-up, marks a child as left and opens the leaving certificate; clerk is
 warned before admitting a child twice and sees the child's month; principal filters the activity log.
 
+`e2e/a11y.spec.js` runs axe-core (WCAG 2.1 A/AA) on every screen for owner, clerk and teacher, including the student
+and staff profile tabs and the attendance sheet; it must report zero violations.
+
 `npm run screenshots` (web repo) refreshes the images in `docs/screenshots/` used by the READMEs.
 
 ## 5. Manual checks before a release

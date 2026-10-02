@@ -105,6 +105,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | UQ-5 | Fast on slow networks | Code split per screen, photos compressed before upload, offline app shell (PWA) | ✅ |
 | UQ-6 | Children's data is private | See [security](security.md) | ✅ |
 | UQ-7 | Readable for weak eyesight | Me → Text size: Normal / Large / Extra large; screens still fit a 360 px phone at 130% | ✅ (e2e) |
+| UQ-9 | Usable with a screen reader and keyboard | Automated WCAG 2.1 AA scan of every screen reports no violations | ✅ (e2e) |
 | UQ-8 | Indian names display correctly | Avatar initials keep Devanagari/Gujarati syllables whole | ✅ (unit) |
 
 ## Later (not in v1)
