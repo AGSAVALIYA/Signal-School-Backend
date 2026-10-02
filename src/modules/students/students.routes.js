@@ -163,6 +163,33 @@ router.post('/students', requirePerm('students.write'), validate({ body: createB
   res.status(201).json({ data: await svc.studentDto(student, enrollment) });
 });
 
+// ---- Possible duplicates (returning children) ----
+// Similar name (trigram) or same guardian phone, so the office re-admits instead of creating a second record.
+router.get(
+  '/students/possible-duplicates',
+  requirePerm('students.write'),
+  validate({ query: z.object({ name: z.string().trim().max(150).default(''), guardianPhone: z.string().trim().max(20).default('') }) }),
+  async (req, res) => {
+    const name = req.v.query.name;
+    const phone = req.v.query.guardianPhone.replace(/\D/g, '');
+    if (name.length < 3 && phone.length < 8) return res.json({ data: [] });
+    const rows = await m.sequelize.query(
+      `SELECT s.id, s.name, s.gr_number AS "grNumber", s.status, s.guardian_name AS "guardianName", s.guardian_phone AS "guardianPhone",
+              (SELECT cs.name FROM enrollments e JOIN class_sections cs ON cs.id = e.class_section_id JOIN academic_years y ON y.id = e.academic_year_id
+                WHERE e.student_id = s.id ORDER BY y.start_date DESC LIMIT 1) AS "lastClass",
+              round(similarity(s.name, :name)::numeric, 2)::float AS score,
+              (:phone <> '' AND right(regexp_replace(coalesce(s.guardian_phone, ''), '\\D', '', 'g'), 10) = right(:phone, 10)) AS "samePhone"
+       FROM students s
+       WHERE s.school_id = :school
+         AND ((length(:name) >= 3 AND s.name % :name)
+           OR (length(:phone) >= 8 AND right(regexp_replace(coalesce(s.guardian_phone, ''), '\\D', '', 'g'), 10) = right(:phone, 10)))
+       ORDER BY "samePhone" DESC, score DESC, s.name LIMIT 5`,
+      { replacements: { school: req.school.id, name, phone }, type: QueryTypes.SELECT },
+    );
+    res.json({ data: rows });
+  },
+);
+
 // ---- Read ----
 router.get('/students/:id', yearScope({ required: false }), async (req, res) => {
   const { student, enrollment } = await loadStudent(req, req.params.id);
@@ -173,6 +200,12 @@ router.get('/students/:id', yearScope({ required: false }), async (req, res) => 
 router.get('/students/:id/history', async (req, res) => {
   const student = await findInSchool(m.Student, req.params.id, req);
   res.json({ data: await svc.history(student.id) });
+});
+
+// One child's attendance for a month (calendar for parent meetings).
+router.get('/students/:id/attendance', validate({ query: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) }) }), async (req, res) => {
+  const student = await findInSchool(m.Student, req.params.id, req);
+  res.json({ data: await svc.monthAttendance(req.school, student, req.v.query.month) });
 });
 
 // ---- Update ----
