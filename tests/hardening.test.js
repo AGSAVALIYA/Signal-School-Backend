@@ -100,3 +100,15 @@ test('a rollover key of another school cannot be replayed', async () => {
     });
   expect(res.status).toBe(400);
 });
+
+test('missing or malformed file paths are a clean 404, oversized JSON a 413', async () => {
+  expect((await api().get('/files/%E0%A4%A?e=9999999999&s=x')).status).toBe(404);
+  const key = 'test/missing.jpg';
+  const url = (await storage.urlFor(key)).replace(/^https?:\/\/[^/]+/, '');
+  expect((await api().get(url)).status).toBe(404);
+  const big = await api()
+    .post('/api/v1/auth/login')
+    .set('Content-Type', 'application/json')
+    .send(JSON.stringify({ identifier: 'x'.repeat(2 * 1024 * 1024), password: 'y' }));
+  expect(big.status).toBe(413);
+});

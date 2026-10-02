@@ -15,7 +15,13 @@ const HOUR = 3600;
 function verifySigned(key, { e, s } = {}) {
   const exp = Number(e);
   if (!key || key.includes('..') || !exp || exp < Date.now() / 1000 || typeof s !== 'string') return false;
-  const expected = Buffer.from(sign(decodeURIComponent(key), exp));
+  let decoded;
+  try {
+    decoded = decodeURIComponent(key);
+  } catch {
+    return false;
+  }
+  const expected = Buffer.from(sign(decoded, exp));
   const given = Buffer.from(s);
   return expected.length === given.length && crypto.timingSafeEqual(expected, given);
 }
