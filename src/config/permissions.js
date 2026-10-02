@@ -13,6 +13,7 @@ const P = {
   'attendance.write': ['owner', 'admin', 'teacher'],
   'attendance.override': ['owner', 'admin'],
   'diary.write': ['owner', 'admin', 'teacher'],
+  'health.write': ['owner', 'admin', 'clerk', 'teacher'],
   'syllabus.edit': ['owner', 'admin'],
   'syllabus.complete': ['owner', 'admin', 'teacher'],
   'marks.write': ['owner', 'admin', 'teacher'],

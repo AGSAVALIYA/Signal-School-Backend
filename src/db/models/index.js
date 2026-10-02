@@ -28,6 +28,8 @@ m.TeacherAssignment.belongsTo(m.ClassSection, { foreignKey: 'classSectionId' });
 m.TeacherAssignment.belongsTo(m.Subject, { foreignKey: 'subjectId' });
 
 m.Student.hasMany(m.Enrollment, { foreignKey: 'studentId' });
+m.Student.hasMany(m.HealthCheck, { foreignKey: 'studentId' });
+m.HealthCheck.belongsTo(m.User, { foreignKey: 'createdBy', as: 'author' });
 m.Enrollment.belongsTo(m.Student, { foreignKey: 'studentId' });
 m.Enrollment.belongsTo(m.ClassSection, { foreignKey: 'classSectionId' });
 m.Enrollment.belongsTo(m.AcademicYear, { foreignKey: 'academicYearId' });

@@ -1,4 +1,4 @@
-// Demo data for development and manual testing. Destroys existing v2 data in the target database.
+// Demo data for development and manual testing. DESTROYS all existing data in the target database.
 // Usage: npm run db:seed
 const m = require('../src/db/models');
 const { hashPassword } = require('../src/modules/auth/auth.service');
@@ -30,6 +30,8 @@ const LAST = ['Pawar', 'Shinde', 'More', 'Jadhav', 'Patil', 'Kamble', 'Gaikwad',
 const NATIVE = ['सुनील पवार', 'आरती शिंदे', 'ગીતા પટેલ', 'रवि कुमार'];
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production' && !process.argv.includes('--force'))
+    throw new Error('Refusing to wipe a production database (pass --force if you really mean it)');
   await m.sequelize.query(`TRUNCATE organizations RESTART IDENTITY CASCADE`);
   const pw = await hashPassword('password123');
   const org = await m.Organization.create({ name: 'Signal Trust' });
@@ -105,6 +107,7 @@ async function seed() {
           dob: `${y - 6 - g.sortOrder}-0${(n % 9) + 1}-1${n % 9}`,
           guardianName: `Parent of ${name}`,
           guardianPhone: `98765${String(43210 + n + g.id * 100).padStart(5, '0')}`,
+          guardianLanguage: ['mr', 'hi', 'gu'][n % 3],
           admissionDate: year.startDate,
         });
         await m.Enrollment.create({
@@ -126,7 +129,8 @@ async function seed() {
             studentId: st.id,
             classSectionId: section.id,
             date,
-            status: (n + d) % 7 === 0 ? 'A' : 'P',
+            // The first child of each class has stopped coming (shows the dashboard's absence-streak card).
+            status: (n === 0 && d <= 4) || (n + d) % 7 === 0 ? 'A' : 'P',
             markedBy: sunita.id,
             markedAt: new Date(),
           });

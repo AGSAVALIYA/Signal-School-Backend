@@ -3,6 +3,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const pinoHttp = require('pino-http');
+const rateLimit = require('express-rate-limit');
 const env = require('./config/env');
 const logger = require('./utils/logger');
 const storage = require('./utils/storage');
@@ -23,7 +24,8 @@ function createApp() {
     }),
   );
   app.use((req, res, next) => {
-    req.id = req.headers['x-request-id'] || crypto.randomUUID();
+    const given = req.headers['x-request-id'];
+    req.id = typeof given === 'string' && /^[\w.-]{1,64}$/.test(given) ? given : crypto.randomUUID();
     res.setHeader('X-Request-Id', req.id);
     next();
   });
@@ -31,13 +33,31 @@ function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', async (_req, res) => {
-    await sequelize.authenticate();
-    res.json({ status: 'ok', version: require('../package.json').version });
+    try {
+      await sequelize.authenticate();
+      res.json({ status: 'ok', version: require('../package.json').version });
+    } catch {
+      res.status(503).json({ status: 'unavailable' });
+    }
   });
 
-  // Development file storage (production uses private S3 with signed URLs).
-  if (!env.S3_BUCKET) app.use('/files', express.static(storage.localDir, { maxAge: '7d', fallthrough: false }));
+  // Local disk storage (when S3 is not configured): files are served only with a valid, expiring signature.
+  if (!env.S3_BUCKET) {
+    app.use('/files', (req, _res, next) => (storage.verifySigned(req.path.slice(1), req.query) ? next() : next(new AppError(404, 'NOT_FOUND'))));
+    app.use('/files', express.static(storage.localDir, { maxAge: '1h', fallthrough: false, dotfiles: 'deny', index: false }));
+  }
 
+  // Broad per-IP ceiling against scripted abuse; a whole school behind one mobile IP stays far below it.
+  app.use(
+    '/api/v1',
+    rateLimit({
+      windowMs: 60000,
+      limit: env.NODE_ENV === 'test' ? 100000 : 600,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),
+    }),
+  );
   app.use('/api/v1', require('./routes'));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND')));
   app.use(errorHandler);

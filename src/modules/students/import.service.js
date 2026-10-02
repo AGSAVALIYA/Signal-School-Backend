@@ -37,11 +37,17 @@ function cellText(v) {
 function parseDate(text) {
   if (!text) return null;
   let m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return text;
+  if (m) return validDay(Number(m[1]), Number(m[2]), Number(m[3]));
   m = text.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
   if (!m) return undefined;
-  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  return Number.isNaN(new Date(iso).getTime()) ? undefined : iso;
+  return validDay(Number(m[3]), Number(m[2]), Number(m[1]));
+}
+
+// Rejects impossible days such as 31/02/2020 (Date would silently roll them into March).
+function validDay(y, mo, d) {
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return undefined;
+  return dt.toISOString().slice(0, 10);
 }
 
 async function readSheet(file) {
@@ -114,11 +120,14 @@ async function template(sectionNames, labels = {}) {
   const ws = wb.addWorksheet('Students');
   ws.addRow(COLUMNS.map((c) => (REQUIRED.includes(c) ? `${c}*` : c)));
   ws.getRow(1).font = { bold: true };
-  ws.addRow(['Asha Pawar', sectionNames[0] || 'Std 1 A', 'F', '15/06/2018', '', 'Sunita Pawar', '9876543210', '', '', 'Thane', '', '']);
   ws.columns.forEach((c) => {
     c.width = 18;
   });
+  // The example lives on the help sheet only, so it can never be imported by mistake.
   const help = wb.addWorksheet(labels.help || 'Help');
+  help.addRow(['Example row (copy the layout, not the data):']);
+  help.addRow(['Asha Pawar', sectionNames[0] || 'Std 1 A', 'F', '15/06/2018', '', 'Sunita Pawar', '9876543210', '', '', 'Thane', '', '']);
+  help.addRow([]);
   help.addRow(['Classes you can use:']);
   sectionNames.forEach((n) => help.addRow([n]));
   help.addRow([]);

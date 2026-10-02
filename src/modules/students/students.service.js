@@ -1,7 +1,8 @@
-const { QueryTypes } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const m = require('../../db/models');
 const storage = require('../../utils/storage');
 const { conflict } = require('../../utils/errors');
+const { daysInMonth, weekday } = require('../../utils/dates');
 
 // Atomically reserves `count` GR numbers for a school (no race between concurrent admissions).
 async function allocateGr(school, count, transaction) {
@@ -68,4 +69,31 @@ function history(studentId) {
   );
 }
 
-module.exports = { allocateGr, assertGrFree, studentDto, history, ageOf };
+// Every day of a month with the child's mark; holidays and weekly offs are excluded from the percentage (as in the register).
+async function monthAttendance(school, student, month) {
+  const days = daysInMonth(month);
+  const [from, to] = [days[0], days[days.length - 1]];
+  const [marks, holidays] = await Promise.all([
+    m.Attendance.findAll({ where: { studentId: student.id, date: { [Op.between]: [from, to] } }, attributes: ['date', 'status'] }),
+    m.Holiday.findAll({ where: { schoolId: school.id, date: { [Op.between]: [from, to] } }, attributes: ['date', 'name'] }),
+  ]);
+  const status = Object.fromEntries(marks.map((a) => [a.date, a.status]));
+  const holiday = Object.fromEntries(holidays.map((h) => [h.date, h.name]));
+  const list = days.map((date) => ({
+    date,
+    status: status[date] ?? null,
+    holiday: holiday[date] ?? null,
+    off: holiday[date] !== undefined || school.weeklyOffs.includes(weekday(date)),
+  }));
+  const counted = list.filter((d) => !d.off && d.status);
+  const present = counted.filter((d) => ['P', 'LATE'].includes(d.status)).length;
+  const absent = counted.filter((d) => d.status === 'A').length;
+  const leave = counted.filter((d) => d.status === 'L').length;
+  return {
+    month,
+    days: list,
+    totals: { present, absent, leave, percent: counted.length ? Math.round((100 * present) / counted.length) : null },
+  };
+}
+
+module.exports = { allocateGr, assertGrFree, studentDto, history, ageOf, monthAttendance };

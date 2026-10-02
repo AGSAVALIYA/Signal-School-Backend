@@ -8,7 +8,8 @@ const validate = (schemas) =>
       const result = schema.safeParse(req[part] ?? {});
       if (!result.success) {
         const fields = {};
-        for (const issue of result.error.issues) fields[issue.path.join('.') || part] = issue.code.toUpperCase();
+        for (const issue of result.error.issues)
+          fields[issue.path.join('.') || part] = /^[A-Z][A-Z0-9_]+$/.test(issue.message) ? issue.message : issue.code.toUpperCase();
         throw badRequest('VALIDATION', { fields });
       }
       req.v[part] = result.data;

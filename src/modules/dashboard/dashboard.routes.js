@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { QueryTypes } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const { z } = require('zod');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
@@ -9,6 +9,24 @@ const { todayIn, addDays } = require('../../utils/dates');
 const { page } = require('../../utils/http');
 const { isStaff } = require('../../utils/scope');
 
+const AUDIT_AREAS = [
+  'attendance',
+  'student',
+  'syllabus',
+  'marks',
+  'diary',
+  'health',
+  'user',
+  'assignment',
+  'year',
+  'school',
+  'organization',
+  'section',
+  'subject',
+  'grade',
+  'holiday',
+];
+
 const q = (sql, replacements) => m.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
 
 // Principal's dashboard: setup checklist, today's attendance, trends, syllabus and at-risk students.
@@ -16,13 +34,15 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
   const s = req.school.id;
   const y = req.year?.id ?? 0;
   const date = todayIn(req.school.timezone);
-  const [[counts], trend, atRisk, syllabus, birthdays] = await Promise.all([
+  const [[counts], trend, atRisk, syllabus, birthdays, consecutiveAbsences] = await Promise.all([
     q(
       `SELECT (SELECT count(*) FROM enrollments WHERE academic_year_id = :y AND status = 'active')::int AS students,
               (SELECT count(*) FROM user_schools us JOIN users u ON u.id = us.user_id AND u.status = 'active' WHERE us.school_id = :s AND us.role = 'teacher')::int AS teachers,
               (SELECT count(*) FROM class_sections WHERE academic_year_id = :y)::int AS sections,
               (SELECT count(*) FROM subjects WHERE academic_year_id = :y)::int AS subjects,
-              (SELECT count(*) FROM grades WHERE school_id = :s)::int AS grades`,
+              (SELECT count(*) FROM grades WHERE school_id = :s)::int AS grades,
+              (SELECT count(*) FROM (SELECT DISTINCT ON (h.student_id) h.needs_follow_up FROM health_checks h JOIN students st ON st.id = h.student_id
+                 WHERE h.school_id = :s AND st.status = 'active' ORDER BY h.student_id, h.checked_on DESC, h.id DESC) x WHERE x.needs_follow_up)::int AS "healthFollowUps"`,
       { s, y },
     ),
     q(
@@ -31,7 +51,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
       { s, y, from: addDays(date, -14) },
     ),
     q(
-      `SELECT st.id, st.name, cs.name AS "sectionName", st.guardian_phone AS "guardianPhone",
+      `SELECT st.id, st.name, cs.name AS "sectionName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage",
               round(100.0 * count(*) FILTER (WHERE a.status IN ('P','LATE')) / count(*))::int AS percent, count(*)::int AS marked
        FROM attendance a JOIN students st ON st.id = a.student_id JOIN class_sections cs ON cs.id = a.class_section_id
        WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND st.status = 'active'
@@ -52,6 +72,24 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
        WHERE st.school_id = :s AND st.dob IS NOT NULL AND to_char(st.dob, 'MM-DD') = :md ORDER BY st.name`,
       { s, y, md: date.slice(5) },
     ),
+    // Absent on each of the latest marked days (holidays are never marked, so they don't break a streak).
+    q(
+      `WITH ranked AS (
+         SELECT a.student_id, a.date, a.status, row_number() OVER (PARTITION BY a.student_id ORDER BY a.date DESC) AS rn
+         FROM attendance a WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND a.date <= :date
+       ), streaks AS (
+         SELECT student_id, coalesce(min(rn) FILTER (WHERE status <> 'A') - 1, count(*)) AS days FROM ranked GROUP BY student_id
+       )
+       SELECT st.id, st.name, cs.name AS "sectionName", k.days::int AS days, min(r.date) AS "since",
+              st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage"
+       FROM streaks k JOIN ranked r ON r.student_id = k.student_id AND r.rn <= k.days
+       JOIN students st ON st.id = k.student_id AND st.status = 'active'
+       JOIN enrollments e ON e.student_id = st.id AND e.academic_year_id = :y AND e.status = 'active'
+       JOIN class_sections cs ON cs.id = e.class_section_id
+       WHERE k.days >= :min
+       GROUP BY st.id, cs.name, k.days ORDER BY k.days DESC, st.name LIMIT 50`,
+      { s, y, date, from: addDays(date, -60), min: 3 },
+    ),
   ]);
   res.json({
     data: {
@@ -70,6 +108,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
       atRisk,
       syllabus: syllabus.map((r) => ({ ...r, percent: r.total ? Math.round((100 * r.done) / r.total) : 0 })),
       birthdays,
+      consecutiveAbsences,
     },
   });
 });
@@ -117,14 +156,20 @@ router.get(
       userId: z.coerce.number().optional(),
       entityType: z.string().optional(),
       action: z.string().optional(),
+      // Comma list of action prefixes, e.g. "attendance,student" (see AUDIT_AREAS).
+      areas: z
+        .string()
+        .optional()
+        .transform((v) => (v ? v.split(',').filter((a) => AUDIT_AREAS.includes(a)) : [])),
       page: z.coerce.number().optional(),
       pageSize: z.coerce.number().optional(),
     }),
   }),
   async (req, res) => {
     const { limit, offset } = page(req.v.query);
-    const { userId, entityType, action } = req.v.query;
+    const { userId, entityType, action, areas } = req.v.query;
     const where = { schoolId: req.school.id, ...(userId ? { userId } : {}), ...(entityType ? { entityType } : {}), ...(action ? { action } : {}) };
+    if (areas.length) where[Op.and] = [{ [Op.or]: areas.map((a) => ({ action: { [Op.like]: `${a}.%` } })) }];
     const { rows, count } = await m.AuditLog.findAndCountAll({
       where,
       include: [{ model: m.User, attributes: ['id', 'name'] }],

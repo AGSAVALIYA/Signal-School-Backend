@@ -182,7 +182,7 @@ async function today(req, yearId) {
     { replacements: { date, y: yearId }, type: QueryTypes.SELECT },
   );
   const absentees = await m.sequelize.query(
-    `SELECT st.id, st.name, st.guardian_name AS "guardianName", st.guardian_phone AS "guardianPhone", cs.name AS "sectionName"
+    `SELECT st.id, st.name, st.guardian_name AS "guardianName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage", cs.name AS "sectionName"
      FROM attendance a JOIN students st ON st.id = a.student_id JOIN class_sections cs ON cs.id = a.class_section_id
      WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date = :date AND a.status = 'A' ORDER BY cs.name, st.name`,
     { replacements: { s: req.school.id, y: yearId, date }, type: QueryTypes.SELECT },

@@ -163,6 +163,33 @@ router.post('/students', requirePerm('students.write'), validate({ body: createB
   res.status(201).json({ data: await svc.studentDto(student, enrollment) });
 });
 
+// ---- Possible duplicates (returning children) ----
+// Similar name (trigram) or same guardian phone, so the office re-admits instead of creating a second record.
+router.get(
+  '/students/possible-duplicates',
+  requirePerm('students.write'),
+  validate({ query: z.object({ name: z.string().trim().max(150).default(''), guardianPhone: z.string().trim().max(20).default('') }) }),
+  async (req, res) => {
+    const name = req.v.query.name;
+    const phone = req.v.query.guardianPhone.replace(/\D/g, '');
+    if (name.length < 3 && phone.length < 8) return res.json({ data: [] });
+    const rows = await m.sequelize.query(
+      `SELECT s.id, s.name, s.gr_number AS "grNumber", s.status, s.guardian_name AS "guardianName", s.guardian_phone AS "guardianPhone",
+              (SELECT cs.name FROM enrollments e JOIN class_sections cs ON cs.id = e.class_section_id JOIN academic_years y ON y.id = e.academic_year_id
+                WHERE e.student_id = s.id ORDER BY y.start_date DESC LIMIT 1) AS "lastClass",
+              round(similarity(s.name, :name)::numeric, 2)::float AS score,
+              (:phone <> '' AND right(regexp_replace(coalesce(s.guardian_phone, ''), '\\D', '', 'g'), 10) = right(:phone, 10)) AS "samePhone"
+       FROM students s
+       WHERE s.school_id = :school
+         AND ((length(:name) >= 3 AND s.name % :name)
+           OR (length(:phone) >= 8 AND right(regexp_replace(coalesce(s.guardian_phone, ''), '\\D', '', 'g'), 10) = right(:phone, 10)))
+       ORDER BY "samePhone" DESC, score DESC, s.name LIMIT 5`,
+      { replacements: { school: req.school.id, name, phone }, type: QueryTypes.SELECT },
+    );
+    res.json({ data: rows });
+  },
+);
+
 // ---- Read ----
 router.get('/students/:id', yearScope({ required: false }), async (req, res) => {
   const { student, enrollment } = await loadStudent(req, req.params.id);
@@ -173,6 +200,12 @@ router.get('/students/:id', yearScope({ required: false }), async (req, res) => 
 router.get('/students/:id/history', async (req, res) => {
   const student = await findInSchool(m.Student, req.params.id, req);
   res.json({ data: await svc.history(student.id) });
+});
+
+// One child's attendance for a month (calendar for parent meetings).
+router.get('/students/:id/attendance', validate({ query: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) }) }), async (req, res) => {
+  const student = await findInSchool(m.Student, req.params.id, req);
+  res.json({ data: await svc.monthAttendance(req.school, student, req.v.query.month) });
 });
 
 // ---- Update ----
@@ -219,14 +252,19 @@ router.post(
   requirePerm('students.leave'),
   yearScope(),
   validate({
-    body: z.object({ date: z.string().regex(ISO), reason: z.enum(['migrated', 'dropped_out', 'transferred', 'tc_issued', 'other']), note: str(500) }),
+    body: z.object({
+      date: z.string().regex(ISO),
+      reason: z.enum(['migrated', 'dropped_out', 'transferred', 'tc_issued', 'other']),
+      note: str(500),
+      toSchool: str(200),
+    }),
   }),
   async (req, res) => {
     assertYearWritable(req.year);
     const { student, enrollment } = await loadStudent(req, req.params.id);
-    const { date: leftOn, reason, note } = req.v.body;
+    const { date: leftOn, reason, note, toSchool } = req.v.body;
     await m.sequelize.transaction(async (transaction) => {
-      await student.update({ status: 'left', leftOn, leftReason: reason, leftNote: note }, { transaction });
+      await student.update({ status: 'left', leftOn, leftReason: reason, leftNote: note, leftToSchool: toSchool }, { transaction });
       if (enrollment) await enrollment.update({ status: 'left', exitedOn: leftOn }, { transaction });
     });
     await audit(req, 'student.leave', { entityType: 'student', entityId: student.id, summary: `${student.name}: ${reason}` });
@@ -239,7 +277,7 @@ router.post('/students/:id/readmit', requirePerm('students.leave'), validate({ b
   const section = await findInSchool(m.ClassSection, req.v.body.classSectionId, req, { include: [m.AcademicYear] });
   assertYearWritable(section.AcademicYear);
   await m.sequelize.transaction(async (transaction) => {
-    await student.update({ status: 'active', leftOn: null, leftReason: null, leftNote: null }, { transaction });
+    await student.update({ status: 'active', leftOn: null, leftReason: null, leftNote: null, leftToSchool: null }, { transaction });
     const [enrollment, created] = await m.Enrollment.findOrCreate({
       where: { studentId: student.id, academicYearId: section.academicYearId },
       defaults: { schoolId: req.school.id, classSectionId: section.id, enrolledOn: todayIn(req.school.timezone) },
@@ -323,9 +361,9 @@ router.get(
     const rows = await m.sequelize.query(
       `SELECT s.gr_number, s.name, cs.name AS class, e.roll_number, s.gender, s.dob, s.estimated_birth_year, s.guardian_name, s.guardian_phone,
             s.father_name, s.mother_name, s.address, s.admission_date, e.status
-     FROM enrollments e JOIN students s ON s.id = e.student_id JOIN class_sections cs ON cs.id = e.class_section_id
+     FROM enrollments e JOIN students s ON s.id = e.student_id JOIN class_sections cs ON cs.id = e.class_section_id JOIN grades g ON g.id = cs.grade_id
      WHERE e.academic_year_id = :y AND e.school_id = :sc ${req.v.query.sectionId ? 'AND cs.id = :sec' : ''}
-     ORDER BY cs.sort_order, cs.name, e.roll_number NULLS LAST, s.name`,
+     ORDER BY g.sort_order, cs.sort_order, cs.name, e.roll_number NULLS LAST, s.name`,
       { replacements: { y: req.year.id, sc: req.school.id, sec: req.v.query.sectionId }, type: QueryTypes.SELECT },
     );
     const wb = new ExcelJS.Workbook();

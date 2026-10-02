@@ -13,19 +13,27 @@ const svc = require('./auth.service');
 const LANGS = ['en', 'hi', 'mr', 'gu'];
 const password = z.string().min(8).max(100);
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60000,
-  limit: env.NODE_ENV === 'test' ? 1000 : 20,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  handler: (_req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment' } }),
-});
+const limiter = (limit) =>
+  rateLimit({
+    windowMs: 15 * 60000,
+    limit: env.NODE_ENV === 'test' ? 10000 : limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),
+  });
+const loginLimiter = limiter(env.LOGIN_RATE_LIMIT);
+const refreshLimiter = limiter(120);
 
-router.post('/auth/login', loginLimiter, validate({ body: z.object({ identifier: z.string().min(3), password: z.string().min(1) }) }), async (req, res) => {
-  res.json({ data: await svc.login(req.v.body.identifier, req.v.body.password) });
-});
+router.post(
+  '/auth/login',
+  loginLimiter,
+  validate({ body: z.object({ identifier: z.string().trim().min(3).max(200), password: z.string().min(1).max(100) }) }),
+  async (req, res) => {
+    res.json({ data: await svc.login(req.v.body.identifier, req.v.body.password) });
+  },
+);
 
-router.post('/auth/refresh', validate({ body: z.object({ refreshToken: z.string() }) }), async (req, res) => {
+router.post('/auth/refresh', refreshLimiter, validate({ body: z.object({ refreshToken: z.string().max(200) }) }), async (req, res) => {
   res.json({ data: await svc.refresh(req.v.body.refreshToken) });
 });
 
@@ -46,7 +54,7 @@ router.patch(
   },
 );
 
-router.post('/me/password', authenticate, validate({ body: z.object({ currentPassword: z.string(), newPassword: password }) }), async (req, res) =>
+router.post('/me/password', authenticate, validate({ body: z.object({ currentPassword: z.string().max(100), newPassword: password }) }), async (req, res) =>
   res.json({ data: await svc.changePassword(req.user.id, req.v.body.currentPassword, req.v.body.newPassword) }),
 );
 
