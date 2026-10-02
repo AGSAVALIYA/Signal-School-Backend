@@ -1,4 +1,4 @@
-# Signal School API (v2)
+# Signal School API new
 
 Express 5 + Sequelize + PostgreSQL. Feature modules under `src/modules/*`, all mounted at `/api/v1`.
 
