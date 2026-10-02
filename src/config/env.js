@@ -17,6 +17,8 @@ const schema = z.object({
   AWS_REGION: z.string().default('ap-south-1'),
   UPLOAD_DIR: z.string().default('uploads'),
   LOG_LEVEL: z.string().default('info'),
+  // Logins per IP per 15 minutes. Raise only for local end-to-end test runs (many logins from one machine).
+  LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(20),
 });
 
 const parsed = schema

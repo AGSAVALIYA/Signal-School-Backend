@@ -53,8 +53,8 @@ children) and `as(user).get(…)`. Any new route is automatically included in th
 ## 4. Browser end-to-end (web repo)
 
 ```bash
-# terminal 1 (API repo)
-npm run db:migrate && npm run db:seed && npm start
+# terminal 1 (API repo) — many logins come from one machine, so lift the login rate limit for this run
+npm run db:migrate && npm run db:seed && LOGIN_RATE_LIMIT=1000 npm start
 # terminal 2 (web repo)
 npx playwright test            # starts Vite automatically; runs at 360×740 (phone) and 1280×800 (desktop)
 ```

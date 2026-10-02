@@ -13,7 +13,7 @@ npm ci
 cp .env.example .env                  # DATABASE_URL + JWT_SECRET (16+ chars; 32+ in production)
 npm run db:migrate                    # apply SQL migrations
 npm run db:seed                       # demo data — WIPES the target database; refuses NODE_ENV=production
-npm run dev                           # http://localhost:3000/health
+npm run dev                           # http://localhost:3000/health  (for web e2e runs: LOGIN_RATE_LIMIT=1000)
 npm test                              # Jest; needs Postgres at TEST_DATABASE_URL
                                       # (default postgres://postgres:postgres@localhost:5432/signal_test; schema is dropped & recreated)
 npm run lint && npm run format:check  # ESLint 10 flat config + Prettier

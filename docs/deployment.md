@@ -19,6 +19,7 @@ nginx). The web app is static files and can be served by the same proxy or any s
 | `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | | Leave `S3_BUCKET` empty to store files on disk |
 | `UPLOAD_DIR` | | `uploads` | Must be persistent and backed up when used |
 | `LOG_LEVEL` | | `info` | |
+| `LOGIN_RATE_LIMIT` | | `20` | Logins per IP per 15 min. Keep the default in production; raise only for local e2e runs |
 
 Web app: `VITE_API_URL` at build time (empty when the API is served under the same origin at `/api`).
 

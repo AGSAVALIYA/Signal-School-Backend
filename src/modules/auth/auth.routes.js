@@ -21,7 +21,7 @@ const limiter = (limit) =>
     legacyHeaders: false,
     handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),
   });
-const loginLimiter = limiter(20);
+const loginLimiter = limiter(env.LOGIN_RATE_LIMIT);
 const refreshLimiter = limiter(120);
 
 router.post(
