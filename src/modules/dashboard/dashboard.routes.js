@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { QueryTypes } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const { z } = require('zod');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
@@ -8,6 +8,24 @@ const attendance = require('../attendance/attendance.service');
 const { todayIn, addDays } = require('../../utils/dates');
 const { page } = require('../../utils/http');
 const { isStaff } = require('../../utils/scope');
+
+const AUDIT_AREAS = [
+  'attendance',
+  'student',
+  'syllabus',
+  'marks',
+  'diary',
+  'health',
+  'user',
+  'assignment',
+  'year',
+  'school',
+  'organization',
+  'section',
+  'subject',
+  'grade',
+  'holiday',
+];
 
 const q = (sql, replacements) => m.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
 
@@ -138,14 +156,20 @@ router.get(
       userId: z.coerce.number().optional(),
       entityType: z.string().optional(),
       action: z.string().optional(),
+      // Comma list of action prefixes, e.g. "attendance,student" (see AUDIT_AREAS).
+      areas: z
+        .string()
+        .optional()
+        .transform((v) => (v ? v.split(',').filter((a) => AUDIT_AREAS.includes(a)) : [])),
       page: z.coerce.number().optional(),
       pageSize: z.coerce.number().optional(),
     }),
   }),
   async (req, res) => {
     const { limit, offset } = page(req.v.query);
-    const { userId, entityType, action } = req.v.query;
+    const { userId, entityType, action, areas } = req.v.query;
     const where = { schoolId: req.school.id, ...(userId ? { userId } : {}), ...(entityType ? { entityType } : {}), ...(action ? { action } : {}) };
+    if (areas.length) where[Op.and] = [{ [Op.or]: areas.map((a) => ({ action: { [Op.like]: `${a}.%` } })) }];
     const { rows, count } = await m.AuditLog.findAndCountAll({
       where,
       include: [{ model: m.User, attributes: ['id', 'name'] }],

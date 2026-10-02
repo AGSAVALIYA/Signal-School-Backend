@@ -75,3 +75,18 @@ describe('one child, one month (#5)', () => {
     expect((await as(B.owner).get(`/students/${A.students[0].student.id}/attendance?month=2026-01`)).status).toBe(404);
   });
 });
+
+test('activity log filters by person and by area, with paging', async () => {
+  await as(A.admin).post('/holidays').send({ date: '2030-01-26', name: 'Republic Day' });
+  await as(A.teacher)
+    .put(`/attendance/sections/${A.s1.id}/${today()}`)
+    .send({ rows: [{ studentId: A.students[0].student.id, status: 'P' }] });
+  const byTeacher = await as(A.admin).get(`/audit?userId=${A.teacher.user.id}`);
+  expect(byTeacher.body.data.every((l) => l.userId === A.teacher.user.id)).toBe(true);
+  const attendanceOnly = await as(A.admin).get('/audit?areas=attendance,bogus');
+  expect(attendanceOnly.body.data.length).toBeGreaterThan(0);
+  expect(attendanceOnly.body.data.every((l) => l.action.startsWith('attendance.'))).toBe(true);
+  const page2 = await as(A.admin).get('/audit?pageSize=1&page=2');
+  expect(page2.body.data).toHaveLength(1);
+  expect(page2.body.meta.total).toBeGreaterThan(1);
+});
