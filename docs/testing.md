@@ -43,6 +43,7 @@ the schema is dropped and migrated fresh each run, so migrations are tested too.
 | `attendance.test.js` | Sheets, edit window, future dates, holidays, newest-mark-wins for offline saves, closed/unlocked years, register, school timezone |
 | `years.test.js` | Date validation and overlaps, rollover preview/apply (class-level order, no ticks copied), idempotency under concurrency, late promotions |
 | `syllabus.test.js` | Tree edits keep ticks, taught topics cannot be removed, teacher may untick only own, progress, marks → report card, dashboard, class diary |
+| `followup.test.js` | Possible duplicates (similar names, same phone, isolation), absence streaks (holidays don't break them), one child's month, activity-log filters |
 | `health.test.js` | Health check-ups, follow-ups, leaving destination, marks above maximum, import date validation, dashboard counts |
 
 Writing a new API test: use `makeSchool()` from `tests/helpers.js` (owner, admin, two teachers, two classes, five
@@ -60,8 +61,11 @@ npx playwright test            # starts Vite automatically; runs at 360×740 (ph
 
 `e2e/smoke.spec.js` checks, for owner, clerk and teacher: every page they can open renders, **no console errors, no
 sideways scrolling on a 360 px phone**, and saves a screenshot per page to `e2e-results/screens/` for visual review.
-Journeys: teacher takes attendance; language switch changes the interface; clerk records a health check-up, marks a
-child as left and opens the leaving certificate.
+Journeys: teacher takes attendance with one tap per child; language switch changes the interface; text size at 130%
+still fits a phone; clerk records a health check-up, marks a child as left and opens the leaving certificate; clerk is
+warned before admitting a child twice and sees the child's month; principal filters the activity log.
+
+`npm run screenshots` (web repo) refreshes the images in `docs/screenshots/` used by the READMEs.
 
 ## 5. Manual checks before a release
 

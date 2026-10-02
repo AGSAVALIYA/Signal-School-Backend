@@ -30,7 +30,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | ID | Story | Acceptance criteria | Status |
 |---|---|---|---|
 | US-10 | As a teacher my **home screen shows today's classes** | Each class says "Attendance not taken" or "done: 12 of 12 present (09:10)"; holidays and weekly offs are shown | ✅ |
-| US-11 | As a teacher I **take attendance in a few taps** | Everyone starts Present; tap a child to cycle Absent → Leave → Present; one big Save; colour **and** letter for each status | ✅ |
+| US-11 | As a teacher I **take attendance in a few taps** | Everyone starts Present; each child has P / A / L buttons, so any status is one tap; one big Save; colour **and** letter for each status | ✅ |
 | US-12 | As a teacher I take attendance **without internet** | Saved on the phone, uploaded automatically later; the newest mark wins; refused uploads (e.g. date locked) are shown, never silently lost | ✅ |
 | US-13 | As a teacher I **correct attendance** for recent days | Allowed for N days (school setting, default 7); older dates locked for teachers, open for admins | ✅ |
 | US-14 | As a teacher I am **warned before losing unsaved marks** | Leaving the page with changes asks first; screen says changes are not saved yet | ✅ |
@@ -43,6 +43,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | ID | Story | Acceptance criteria | Status |
 |---|---|---|---|
 | US-20 | As a clerk I **admit a child with only a name and class** | GR number auto-assigned (school prefix); everything else optional under "More details" | ✅ |
+| US-20b | As a clerk I am **warned before admitting a child twice** | Similar name or same guardian phone → "Is this the same child?" with a link to the existing record (re-admit keeps history) | ✅ |
 | US-21 | As a clerk I admit a child **without a birth certificate** | "Date of birth unknown" + approximate age stored as estimated birth year | ✅ |
 | US-22 | As a clerk I **import a class list from Excel/CSV** | Template download; preview shows every row with its problems; only good rows imported; impossible dates (31/02) rejected | ✅ |
 | US-23 | As anyone I **find a child** by name, GR number or guardian phone | Search as I type; filter by class/status; "show more" paging | ✅ |
@@ -52,6 +53,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | US-27 | As a principal I see **which children need a doctor** | Dashboard counts children whose latest check-up asks for a follow-up | ✅ |
 | US-28 | As a clerk I **export the student list** to Excel | Ordered by class level, roll number | ✅ |
 | US-29 | As anyone I see a child's **history across years** | Class, attendance %, results per year; open any past year | ✅ |
+| US-29b | As a teacher I show a guardian **the child's month** | Calendar with each day's mark, holidays greyed, totals and % | ✅ |
 
 ## Reaching families
 
@@ -60,6 +62,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | US-30 | As the office I see **today's absent children with their guardian's phone** | Call and WhatsApp buttons next to each child | ✅ |
 | US-31 | The WhatsApp message is **in the guardian's language** | Uses the guardian language saved on the child (falls back to the app language) | ✅ |
 | US-32 | As a principal I see **children who often miss school** | Below 75% in the last 30 days (min. 5 marked days), with call/WhatsApp | ✅ |
+| US-33 | As a principal I see **children absent several days in a row** | Absent on each of the latest 3+ marked school days (holidays don't break a streak), with call/WhatsApp in the guardian's language | ✅ |
 
 ## Running the school
 
@@ -73,7 +76,7 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | US-45 | As an admin I mark **holidays and weekly offs** | Excluded from attendance %; shown on Today and attendance sheet | ✅ |
 | US-46 | As an admin I print the **monthly attendance register** and download Excel | Students × days, totals, % below 75 highlighted | ✅ |
 | US-47 | As a principal I print **report cards** | One page per child per term, A4 portrait, signatures | ✅ |
-| US-48 | As an admin I see an **activity log** | Who did what and when (2-year retention) | ✅ |
+| US-48 | As an admin I see an **activity log** | Who did what and when (2-year retention); filter by person and kind of change; page through history | ✅ |
 
 ## New academic year
 
@@ -101,6 +104,8 @@ Status: ✅ implemented and covered by automated tests (API tests in `tests/`, b
 | UQ-4 | A crash never shows a blank page | Friendly message with Reload; after a new deploy the page reloads itself once | ✅ |
 | UQ-5 | Fast on slow networks | Code split per screen, photos compressed before upload, offline app shell (PWA) | ✅ |
 | UQ-6 | Children's data is private | See [security](security.md) | ✅ |
+| UQ-7 | Readable for weak eyesight | Me → Text size: Normal / Large / Extra large; screens still fit a 360 px phone at 130% | ✅ (e2e) |
+| UQ-8 | Indian names display correctly | Avatar initials keep Devanagari/Gujarati syllables whole | ✅ (unit) |
 
 ## Later (not in v1)
 

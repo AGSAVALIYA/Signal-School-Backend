@@ -16,4 +16,13 @@ Gujarati and English.
 | [Testing strategy](testing.md) | Developers, testers | Test pyramid, how to run each layer, what a release must pass, field testing with teachers |
 | [Deployment & operations](deployment.md) | Admins | Environment variables, first setup, backups, HTTPS headers, upgrades |
 
+| [AGENTS.md](../AGENTS.md) | Developers, AI coding agents | Commands, project map, rules that must not break, endpoint checklist |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) · [CHANGELOG.md](../CHANGELOG.md) | Contributors | Workflow, conventions, release notes |
+
+<p>
+<img src="screenshots/phone-take-attendance.png" width="200" alt="Attendance on a phone">
+<img src="screenshots/phone-teacher-today-marathi.png" width="200" alt="Teacher home in Marathi">
+<img src="screenshots/desktop-dashboard.png" width="420" alt="Principal dashboard">
+</p>
+
 The web app lives in the sibling repository **Signal-School-Frontend** (its README covers front-end conventions).

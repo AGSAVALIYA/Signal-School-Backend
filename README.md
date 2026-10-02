@@ -6,6 +6,18 @@ dashboard, in English, हिंदी, मराठी and ગુજરાત�
 
 Node.js 22 · Express 5 · PostgreSQL 16 (Sequelize, SQL migrations) · zod · JWT with rotating refresh tokens.
 
+## Screenshots
+
+| Teacher's phone: attendance, one tap per child | Same app in Marathi | Login with language choice |
+|---|---|---|
+| <img src="docs/screenshots/phone-take-attendance.png" width="240" alt="Attendance sheet on a phone with P, A, L buttons for each child"> | <img src="docs/screenshots/phone-teacher-today-marathi.png" width="240" alt="Teacher home screen in Marathi"> | <img src="docs/screenshots/phone-login.png" width="240" alt="Login screen with English, Hindi, Marathi and Gujarati buttons"> |
+
+| Principal's dashboard | Child's profile | New academic year wizard |
+|---|---|---|
+| <img src="docs/screenshots/desktop-dashboard.png" width="320" alt="Dashboard with children absent several days in a row"> | <img src="docs/screenshots/desktop-student-profile.png" width="320" alt="Student profile with tabs"> | <img src="docs/screenshots/desktop-new-year-wizard.png" width="320" alt="Five-step new academic year wizard"> |
+
+Screenshots use demo data (`npm run db:seed`) and are regenerated with `npm run screenshots` in the web repo.
+
 ## Run locally
 
 ```bash
@@ -29,6 +41,8 @@ npm audit
 ```
 
 ## Documentation
+
+New here (human or AI agent)? Start with [AGENTS.md](AGENTS.md), then [CONTRIBUTING.md](CONTRIBUTING.md).
 
 See [`docs/`](docs/README.md): user stories, user guide, architecture, API reference, security, testing strategy,
 deployment.

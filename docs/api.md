@@ -97,7 +97,9 @@ assigned to them; owners and admins bypass assignment checks.
 |---|---|---|---|
 | GET | `/students` | any | `sectionId`, `q`, `status`, `allYears`, paging; includes today's attendance |
 | POST | `/students` | teacher (own class), clerk, admin, owner | GR auto if empty |
+| GET | `/students/possible-duplicates?name&guardianPhone` | teacher, clerk, admin, owner | ≤ 5 children of this school with a similar name (trigram) or the same guardian phone, incl. those who left; for "Is this the same child?" |
 | GET | `/students/:id`, `/students/:id/history` | any | |
+| GET | `/students/:id/attendance?month=YYYY-MM` | any | every day of the month: status, holiday/weekly off, totals and % |
 | PATCH | `/students/:id` | as POST | |
 | POST | `/students/:id/photo` | as POST | |
 | POST | `/students/:id/leave` | clerk, admin, owner | `{ date, reason, note?, toSchool? }` |
@@ -128,9 +130,9 @@ assigned to them; owners and admins bypass assignment checks.
 | GET / POST | `/students/:id/health` | any / teacher, clerk, admin, owner |
 | DELETE | `/health/:id` | author, admin, owner |
 | GET | `/health/follow-ups` | any |
-| GET | `/dashboard` | any (web app: office roles) |
+| GET | `/dashboard` | any (web app: office roles) — counts, today, trend, at-risk (< 75%), `consecutiveAbsences` (latest 3+ marked days absent), syllabus, birthdays, `counts.healthFollowUps` |
 | GET | `/today` | any (teacher home) |
-| GET | `/audit` | owner, admin |
+| GET | `/audit?userId&areas&page&pageSize` | owner, admin — `areas` is a comma list of action prefixes (`attendance`, `student`, `syllabus`, `marks`, `diary`, `health`, `user`, `assignment`, `year`, `school`, `organization`, `section`, `subject`, `grade`, `holiday`) |
 
 ### Files
 
