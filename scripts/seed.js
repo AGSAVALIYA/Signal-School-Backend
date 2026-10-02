@@ -1,4 +1,4 @@
-// Demo data for development and manual testing. Destroys existing v2 data in the target database.
+// Demo data for development and manual testing. DESTROYS all existing data in the target database.
 // Usage: npm run db:seed
 const m = require('../src/db/models');
 const { hashPassword } = require('../src/modules/auth/auth.service');
@@ -30,6 +30,8 @@ const LAST = ['Pawar', 'Shinde', 'More', 'Jadhav', 'Patil', 'Kamble', 'Gaikwad',
 const NATIVE = ['सुनील पवार', 'आरती शिंदे', 'ગીતા પટેલ', 'रवि कुमार'];
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production' && !process.argv.includes('--force'))
+    throw new Error('Refusing to wipe a production database (pass --force if you really mean it)');
   await m.sequelize.query(`TRUNCATE organizations RESTART IDENTITY CASCADE`);
   const pw = await hashPassword('password123');
   const org = await m.Organization.create({ name: 'Signal Trust' });

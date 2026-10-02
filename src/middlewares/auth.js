@@ -11,7 +11,7 @@ async function authenticate(req, _res, next) {
   if (scheme !== 'Bearer' || !token) throw unauth();
   let payload;
   try {
-    payload = jwt.verify(token, env.JWT_SECRET);
+    payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (e) {
     throw unauth(e.name === 'TokenExpiredError' ? 'SESSION_EXPIRED' : 'UNAUTHENTICATED');
   }

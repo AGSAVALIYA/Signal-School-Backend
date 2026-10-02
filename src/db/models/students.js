@@ -25,6 +25,7 @@ module.exports = (sequelize, DT) => {
       leftOn: DT.DATEONLY,
       leftReason: DT.TEXT,
       leftNote: DT.TEXT,
+      leftToSchool: DT.TEXT,
       consentPhoto: { type: DT.BOOLEAN, defaultValue: false },
     },
     { tableName: 'students' },
@@ -46,5 +47,20 @@ module.exports = (sequelize, DT) => {
     { tableName: 'enrollments' },
   );
 
-  return { Student, Enrollment };
+  const HealthCheck = sequelize.define(
+    'HealthCheck',
+    {
+      schoolId: { type: DT.INTEGER, allowNull: false },
+      studentId: { type: DT.INTEGER, allowNull: false },
+      checkedOn: { type: DT.DATEONLY, allowNull: false },
+      heightCm: DT.DECIMAL(5, 1),
+      weightKg: DT.DECIMAL(5, 1),
+      needsFollowUp: { type: DT.BOOLEAN, defaultValue: false },
+      notes: DT.TEXT,
+      createdBy: DT.INTEGER,
+    },
+    { tableName: 'health_checks' },
+  );
+
+  return { Student, Enrollment, HealthCheck };
 };

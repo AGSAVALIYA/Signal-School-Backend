@@ -172,12 +172,31 @@ CREATE TABLE students (
   left_on DATE,
   left_reason TEXT CHECK (left_reason IN ('migrated', 'dropped_out', 'transferred', 'tc_issued', 'other')),
   left_note TEXT,
+  left_to_school TEXT,
   consent_photo BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (school_id, gr_number)
 );
 CREATE INDEX students_name_trgm ON students USING gin (name gin_trgm_ops);
+
+CREATE INDEX students_school_status ON students (school_id, status);
+
+-- Health camp / check-up records (growth, follow-up needed).
+CREATE TABLE health_checks (
+  id SERIAL PRIMARY KEY,
+  school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  checked_on DATE NOT NULL,
+  height_cm NUMERIC(5, 1) CHECK (height_cm IS NULL OR height_cm BETWEEN 30 AND 250),
+  weight_kg NUMERIC(5, 1) CHECK (weight_kg IS NULL OR weight_kg BETWEEN 2 AND 200),
+  needs_follow_up BOOLEAN NOT NULL DEFAULT false,
+  notes TEXT,
+  created_by INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ON health_checks (student_id, checked_on DESC);
 
 CREATE TABLE enrollments (
   id SERIAL PRIMARY KEY,

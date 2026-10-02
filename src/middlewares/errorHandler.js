@@ -2,7 +2,6 @@ const { UniqueConstraintError, ForeignKeyConstraintError, ValidationError, Datab
 const { AppError, MESSAGES } = require('../utils/errors');
 const logger = require('../utils/logger');
 
-// eslint-disable-next-line no-unused-vars
 module.exports = function errorHandler(err, req, res, _next) {
   let e = err;
   if (err instanceof UniqueConstraintError) e = new AppError(409, 'DUPLICATE');

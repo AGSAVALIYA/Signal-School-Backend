@@ -63,9 +63,10 @@ async function buildPlan(schoolId, sourceYearId, { name, startDate, endDate }) {
 }
 
 // Applies one promotion decision to a student. Shared by the wizard and the later per-class promotion screen.
-async function applyPromotion(item, { targetYear, targetSectionId, transaction }) {
+async function applyPromotion(item, { targetYear, targetSectionId, sourceYearId, transaction }) {
   const old = await m.Enrollment.findOne({ where: { id: item.enrollmentId }, transaction, lock: transaction.LOCK.UPDATE });
   if (!old || old.schoolId !== targetYear.schoolId) throw notFound();
+  if (sourceYearId && old.academicYearId !== sourceYearId) throw badRequest('ROLLOVER_INVALID', { params: { enrollmentId: old.id } });
   if (old.academicYearId === targetYear.id) throw badRequest('ROLLOVER_INVALID');
   const sourceYear = await m.AcademicYear.findByPk(old.academicYearId, { transaction });
   const exitedOn = sourceYear.endDate;
@@ -110,12 +111,15 @@ async function activateYear(year, transaction) {
 // Creates the whole next year in one transaction. Idempotent per key: retries return the first result.
 async function applyPlan(schoolId, userId, plan, idempotencyKey) {
   const done = await m.RolloverRun.findOne({ where: { idempotencyKey } });
-  if (done) return done.summary;
+  if (done) {
+    if (done.schoolId !== schoolId) throw badRequest('ROLLOVER_INVALID');
+    return done.summary;
+  }
   try {
     return await createFromPlan(schoolId, userId, plan, idempotencyKey);
   } catch (err) {
     // A concurrent retry with the same key loses the race on a unique index: return the winner's result.
-    const winner = err instanceof UniqueConstraintError && (await m.RolloverRun.findOne({ where: { idempotencyKey } }));
+    const winner = err instanceof UniqueConstraintError && (await m.RolloverRun.findOne({ where: { idempotencyKey, schoolId } }));
     if (winner) return winner.summary;
     throw err;
   }
@@ -210,7 +214,7 @@ function createFromPlan(schoolId, userId, plan, idempotencyKey) {
     const counts = { promote: 0, detain: 0, leave: 0, graduate: 0 };
     for (const p of plan.promotions || []) {
       const targetSectionId = p.targetKey ? keyToId[p.targetKey] : null;
-      await applyPromotion(p, { targetYear: year, targetSectionId, transaction });
+      await applyPromotion(p, { targetYear: year, targetSectionId, sourceYearId: source.id, transaction });
       counts[p.action] += 1;
     }
 

@@ -3,6 +3,7 @@ const { z } = require('zod');
 const { Op } = require('sequelize');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { can } = require('../../config/permissions');
 const { User, UserSchool, TeacherAssignment, ClassSection, Subject, AuditLog, sequelize } = require('../../db/models');
 const auth = require('../auth/auth.service');
 const audit = require('../../utils/audit');
@@ -52,7 +53,7 @@ async function memberOrThrow(req, id) {
 
 router.get(
   '/users',
-  validate({ query: z.object({ role: ROLE.optional(), status: z.enum(['active', 'inactive']).optional(), q: z.string().optional() }) }),
+  validate({ query: z.object({ role: ROLE.optional(), status: z.enum(['active', 'inactive']).optional(), q: z.string().trim().max(100).optional() }) }),
   async (req, res) => {
     const { role, status, q } = req.v.query;
     const users = await User.findAll({
@@ -60,6 +61,9 @@ router.get(
       include: [{ model: UserSchool, as: 'memberships', where: { schoolId: req.school.id, ...(role ? { role } : {}) } }],
       order: [['name', 'ASC']],
     });
+    // Teachers only need colleagues' names; contact details and login data stay with the office.
+    if (!can(req.role, 'users.manage'))
+      return res.json({ data: users.map((u) => ({ id: u.id, name: u.name, role: u.memberships[0]?.role, status: u.status })) });
     res.json({ data: await Promise.all(users.map((u) => userDto(u, req.school.id))) });
   },
 );

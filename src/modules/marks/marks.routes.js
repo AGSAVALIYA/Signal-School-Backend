@@ -55,13 +55,15 @@ router.put(
       term: TERM,
       entries: z
         .array(
-          z.object({
-            enrollmentId: z.number().int(),
-            grade: z.string().trim().max(5).nullish(),
-            marks: z.number().min(0).max(1000).nullish(),
-            maxMarks: z.number().min(1).max(1000).nullish(),
-            remarks: z.string().trim().max(500).nullish(),
-          }),
+          z
+            .object({
+              enrollmentId: z.number().int(),
+              grade: z.string().trim().max(5).nullish(),
+              marks: z.number().min(0).max(1000).nullish(),
+              maxMarks: z.number().min(1).max(1000).nullish(),
+              remarks: z.string().trim().max(500).nullish(),
+            })
+            .refine((e) => e.marks == null || e.maxMarks == null || e.marks <= e.maxMarks, { path: ['marks'], message: 'MORE_THAN_MAX' }),
         )
         .max(500),
     }),

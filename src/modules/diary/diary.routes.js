@@ -99,8 +99,14 @@ router.delete('/diary/entries/:kind/:id', async (req, res) => {
   if (!Model) throw badRequest('VALIDATION');
   const row = await findInSchool(Model, req.params.id, req);
   if (row.createdBy !== req.user.id && !isStaff(req)) throw forbidden();
-  await storage.remove(row.photoKey);
+  assertYearWritable(await m.AcademicYear.findByPk(row.academicYearId));
   await row.destroy();
+  await storage.remove(row.photoKey);
+  await audit(req, 'diary.delete', {
+    entityType: req.params.kind === 'class' ? 'section' : 'student',
+    entityId: row.classSectionId ?? row.studentId,
+    summary: row.date,
+  });
   res.status(204).end();
 });
 

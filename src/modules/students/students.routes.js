@@ -219,14 +219,19 @@ router.post(
   requirePerm('students.leave'),
   yearScope(),
   validate({
-    body: z.object({ date: z.string().regex(ISO), reason: z.enum(['migrated', 'dropped_out', 'transferred', 'tc_issued', 'other']), note: str(500) }),
+    body: z.object({
+      date: z.string().regex(ISO),
+      reason: z.enum(['migrated', 'dropped_out', 'transferred', 'tc_issued', 'other']),
+      note: str(500),
+      toSchool: str(200),
+    }),
   }),
   async (req, res) => {
     assertYearWritable(req.year);
     const { student, enrollment } = await loadStudent(req, req.params.id);
-    const { date: leftOn, reason, note } = req.v.body;
+    const { date: leftOn, reason, note, toSchool } = req.v.body;
     await m.sequelize.transaction(async (transaction) => {
-      await student.update({ status: 'left', leftOn, leftReason: reason, leftNote: note }, { transaction });
+      await student.update({ status: 'left', leftOn, leftReason: reason, leftNote: note, leftToSchool: toSchool }, { transaction });
       if (enrollment) await enrollment.update({ status: 'left', exitedOn: leftOn }, { transaction });
     });
     await audit(req, 'student.leave', { entityType: 'student', entityId: student.id, summary: `${student.name}: ${reason}` });
@@ -239,7 +244,7 @@ router.post('/students/:id/readmit', requirePerm('students.leave'), validate({ b
   const section = await findInSchool(m.ClassSection, req.v.body.classSectionId, req, { include: [m.AcademicYear] });
   assertYearWritable(section.AcademicYear);
   await m.sequelize.transaction(async (transaction) => {
-    await student.update({ status: 'active', leftOn: null, leftReason: null, leftNote: null }, { transaction });
+    await student.update({ status: 'active', leftOn: null, leftReason: null, leftNote: null, leftToSchool: null }, { transaction });
     const [enrollment, created] = await m.Enrollment.findOrCreate({
       where: { studentId: student.id, academicYearId: section.academicYearId },
       defaults: { schoolId: req.school.id, classSectionId: section.id, enrolledOn: todayIn(req.school.timezone) },
@@ -323,9 +328,9 @@ router.get(
     const rows = await m.sequelize.query(
       `SELECT s.gr_number, s.name, cs.name AS class, e.roll_number, s.gender, s.dob, s.estimated_birth_year, s.guardian_name, s.guardian_phone,
             s.father_name, s.mother_name, s.address, s.admission_date, e.status
-     FROM enrollments e JOIN students s ON s.id = e.student_id JOIN class_sections cs ON cs.id = e.class_section_id
+     FROM enrollments e JOIN students s ON s.id = e.student_id JOIN class_sections cs ON cs.id = e.class_section_id JOIN grades g ON g.id = cs.grade_id
      WHERE e.academic_year_id = :y AND e.school_id = :sc ${req.v.query.sectionId ? 'AND cs.id = :sec' : ''}
-     ORDER BY cs.sort_order, cs.name, e.roll_number NULLS LAST, s.name`,
+     ORDER BY g.sort_order, cs.sort_order, cs.name, e.roll_number NULLS LAST, s.name`,
       { replacements: { y: req.year.id, sc: req.school.id, sec: req.v.query.sectionId }, type: QueryTypes.SELECT },
     );
     const wb = new ExcelJS.Workbook();

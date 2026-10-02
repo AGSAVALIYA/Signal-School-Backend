@@ -12,6 +12,10 @@ const LOCK_MINUTES = 15;
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 const hashPassword = (plain) => bcrypt.hash(plain, 10);
+// Compared against when the account does not exist, so response time does not reveal which logins are valid.
+const DUMMY_HASH = bcrypt.hashSync('signal-school-timing-guard', 10);
+// A rotated refresh token presented again after this grace period means it was copied: end every session of that user.
+const REUSE_GRACE_MS = 60 * 1000;
 
 // Readable temporary password (no 0/O/1/l confusion) for sharing over the phone or WhatsApp.
 function tempPassword(length = 10) {
@@ -20,7 +24,7 @@ function tempPassword(length = 10) {
 }
 
 async function issueTokens(user) {
-  const accessToken = jwt.sign({ sub: user.id, tv: user.tokenVersion }, env.JWT_SECRET, { expiresIn: env.ACCESS_TOKEN_TTL });
+  const accessToken = jwt.sign({ sub: user.id, tv: user.tokenVersion }, env.JWT_SECRET, { expiresIn: env.ACCESS_TOKEN_TTL, algorithm: 'HS256' });
   const refreshToken = crypto.randomBytes(48).toString('base64url');
   await RefreshToken.create({
     userId: user.id,
@@ -54,7 +58,10 @@ async function login(identifier, password) {
   const user = await User.scope('withSecret').findOne({
     where: { [Op.or]: [{ email: id.toLowerCase() }, ...(phone.length >= 6 ? [{ phone }] : [])] },
   });
-  if (!user) throw new AppError(401, 'INVALID_CREDENTIALS');
+  if (!user) {
+    await bcrypt.compare(password, DUMMY_HASH);
+    throw new AppError(401, 'INVALID_CREDENTIALS');
+  }
   if (user.lockedUntil && user.lockedUntil > new Date()) throw new AppError(429, 'ACCOUNT_LOCKED');
   if (!(await bcrypt.compare(password, user.passwordHash))) {
     const failed = user.failedLoginCount + 1;
@@ -70,11 +77,17 @@ async function login(identifier, password) {
 }
 
 async function refresh(token) {
-  const row = await RefreshToken.findOne({ where: { tokenHash: sha256(token || ''), revokedAt: null, expiresAt: { [Op.gt]: new Date() } } });
+  const row = await RefreshToken.findOne({ where: { tokenHash: sha256(token || ''), expiresAt: { [Op.gt]: new Date() } } });
   if (!row) throw new AppError(401, 'SESSION_EXPIRED');
   const user = await User.findByPk(row.userId);
+  if (row.revokedAt) {
+    if (user && Date.now() - new Date(row.revokedAt).getTime() > REUSE_GRACE_MS) await revokeAll(user);
+    throw new AppError(401, 'SESSION_EXPIRED');
+  }
   if (!user || user.status !== 'active') throw new AppError(401, 'SESSION_EXPIRED');
-  await row.update({ revokedAt: new Date() });
+  // Only one concurrent refresh with the same token can win.
+  const [claimed] = await RefreshToken.update({ revokedAt: new Date() }, { where: { id: row.id, revokedAt: null } });
+  if (!claimed) throw new AppError(401, 'SESSION_EXPIRED');
   return issueTokens(user);
 }
 
