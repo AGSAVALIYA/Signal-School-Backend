@@ -16,7 +16,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
   const s = req.school.id;
   const y = req.year?.id ?? 0;
   const date = todayIn(req.school.timezone);
-  const [[counts], trend, atRisk, syllabus, birthdays] = await Promise.all([
+  const [[counts], trend, atRisk, syllabus, birthdays, consecutiveAbsences] = await Promise.all([
     q(
       `SELECT (SELECT count(*) FROM enrollments WHERE academic_year_id = :y AND status = 'active')::int AS students,
               (SELECT count(*) FROM user_schools us JOIN users u ON u.id = us.user_id AND u.status = 'active' WHERE us.school_id = :s AND us.role = 'teacher')::int AS teachers,
@@ -54,6 +54,24 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
        WHERE st.school_id = :s AND st.dob IS NOT NULL AND to_char(st.dob, 'MM-DD') = :md ORDER BY st.name`,
       { s, y, md: date.slice(5) },
     ),
+    // Absent on each of the latest marked days (holidays are never marked, so they don't break a streak).
+    q(
+      `WITH ranked AS (
+         SELECT a.student_id, a.date, a.status, row_number() OVER (PARTITION BY a.student_id ORDER BY a.date DESC) AS rn
+         FROM attendance a WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND a.date <= :date
+       ), streaks AS (
+         SELECT student_id, coalesce(min(rn) FILTER (WHERE status <> 'A') - 1, count(*)) AS days FROM ranked GROUP BY student_id
+       )
+       SELECT st.id, st.name, cs.name AS "sectionName", k.days::int AS days, min(r.date) AS "since",
+              st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage"
+       FROM streaks k JOIN ranked r ON r.student_id = k.student_id AND r.rn <= k.days
+       JOIN students st ON st.id = k.student_id AND st.status = 'active'
+       JOIN enrollments e ON e.student_id = st.id AND e.academic_year_id = :y AND e.status = 'active'
+       JOIN class_sections cs ON cs.id = e.class_section_id
+       WHERE k.days >= :min
+       GROUP BY st.id, cs.name, k.days ORDER BY k.days DESC, st.name LIMIT 50`,
+      { s, y, date, from: addDays(date, -60), min: 3 },
+    ),
   ]);
   res.json({
     data: {
@@ -72,6 +90,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
       atRisk,
       syllabus: syllabus.map((r) => ({ ...r, percent: r.total ? Math.round((100 * r.done) / r.total) : 0 })),
       birthdays,
+      consecutiveAbsences,
     },
   });
 });
