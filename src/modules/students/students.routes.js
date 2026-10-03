@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { z } = require('zod');
-const { Op, QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 const ExcelJS = require('exceljs');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
@@ -72,6 +72,26 @@ async function loadStudent(req, id) {
 }
 
 // ---- List ----
+// Lean rows for list screens: raw SQL (no model building) and a thumbnail instead of the full photo.
+const LIST_COLUMNS = `s.id, s.name, s.gr_number AS "grNumber", s.status, s.gender, s.guardian_phone AS "guardianPhone", s.photo_key AS "photoKey"`;
+const likeSafe = (q) => q.replace(/[\\%_]/g, (c) => `\\${c}`);
+const listDto = async ({
+  photoKey,
+  enrollmentId,
+  academicYearId,
+  classSectionId,
+  sectionName,
+  rollNumber,
+  enrollmentStatus,
+  todayStatus,
+  total: _total,
+  ...s
+}) => ({
+  ...s,
+  thumbUrl: await storage.thumbUrlFor(photoKey),
+  todayStatus: todayStatus ?? null,
+  enrollment: enrollmentId ? { id: enrollmentId, academicYearId, classSectionId, sectionName, rollNumber, status: enrollmentStatus } : null,
+});
 router.get(
   '/students',
   yearScope({ required: false }),
@@ -88,46 +108,56 @@ router.get(
   async (req, res) => {
     const { sectionId, q, status, allYears } = req.v.query;
     const { limit, offset } = page(req.v.query);
-    const where = { schoolId: req.school.id };
-    if (q) where[Op.or] = [{ name: { [Op.iLike]: `%${q}%` } }, { grNumber: { [Op.iLike]: `${q}%` } }, { guardianPhone: { [Op.like]: `%${q}%` } }];
-    const inYear = allYears === 'false' && req.year;
-    if (status !== 'all' && !inYear) where.status = status;
-    const enrollmentWhere = inYear
-      ? { academicYearId: req.year.id, ...(sectionId ? { classSectionId: sectionId } : {}), ...(status === 'active' ? { status: 'active' } : {}) }
-      : undefined;
-    const enrollmentFilter = { model: m.Enrollment, where: enrollmentWhere, required: Boolean(inYear) };
-    const count = await m.Student.count({ where, include: inYear ? [{ ...enrollmentFilter, attributes: [] }] : [], distinct: true, col: 'id' });
-    const rows = await m.Student.findAll({
-      where,
-      include: [{ ...enrollmentFilter, include: [{ model: m.ClassSection, attributes: ['id', 'name', 'sortOrder'] }] }],
-      order: inYear
-        ? [
-            [m.Enrollment, m.ClassSection, 'sortOrder', 'ASC'],
-            [m.Enrollment, 'rollNumber', 'ASC NULLS LAST'],
-            ['name', 'ASC'],
-          ]
-        : [['name', 'ASC']],
-      limit,
-      offset,
-      subQuery: !inYear, // one enrollment per student per year, so a flat join paginates correctly
-    });
-
-    // Today's attendance status only makes sense for the current year.
-    let today = {};
-    if (inYear && req.year.status === 'active' && rows.length) {
-      const att = await m.Attendance.findAll({
-        where: { studentId: rows.map((s) => s.id), date: todayIn(req.school.timezone) },
-        attributes: ['studentId', 'status'],
-      });
-      today = Object.fromEntries(att.map((a) => [a.studentId, a.status]));
+    const r = { s: req.school.id, limit, offset, status, sec: sectionId };
+    const where = ['s.school_id = :s'];
+    if (q) {
+      Object.assign(r, { like: `%${likeSafe(q)}%`, prefix: `${likeSafe(q)}%` });
+      where.push('(s.name ILIKE :like OR s.gr_number ILIKE :prefix OR s.guardian_phone LIKE :like)');
     }
-    const data = await Promise.all(
-      rows.map(async (s) => {
-        const latest = [...s.Enrollments].sort((a, b) => b.academicYearId - a.academicYearId)[0];
-        return { ...(await svc.studentDto(s, latest)), todayStatus: today[s.id] ?? null };
-      }),
-    );
-    res.json({ data, meta: { total: count } });
+    const inYear = allYears === 'false' && req.year;
+    let sql;
+    if (inYear) {
+      // One enrollment per child per year: a flat join, ordered like the register (class level, class, roll number).
+      Object.assign(r, { y: req.year.id, today: req.year.status === 'active' ? todayIn(req.school.timezone) : null });
+      where.push('e.academic_year_id = :y');
+      if (sectionId) where.push('e.class_section_id = :sec');
+      if (status === 'active') where.push("e.status = 'active'");
+      else if (status !== 'all') where.push('s.status = :status');
+      sql = `SELECT ${LIST_COLUMNS}, e.id AS "enrollmentId", e.academic_year_id AS "academicYearId", e.class_section_id AS "classSectionId",
+                cs.name AS "sectionName", e.roll_number AS "rollNumber", e.status AS "enrollmentStatus", a.status AS "todayStatus",
+                count(*) OVER()::int AS total
+         FROM enrollments e
+         JOIN students s ON s.id = e.student_id
+         JOIN class_sections cs ON cs.id = e.class_section_id
+         JOIN grades g ON g.id = cs.grade_id
+         LEFT JOIN attendance a ON a.student_id = s.id AND a.date = :today
+         WHERE e.school_id = :s AND ${where.join(' AND ')}
+         ORDER BY g.sort_order, cs.sort_order, cs.name, e.roll_number NULLS LAST, s.name, s.id
+         LIMIT :limit OFFSET :offset`;
+    } else {
+      // All years: each child once, with their most recent class.
+      if (status !== 'all') where.push('s.status = :status');
+      sql = `SELECT ${LIST_COLUMNS}, le.id AS "enrollmentId", le.academic_year_id AS "academicYearId", le.class_section_id AS "classSectionId",
+                le.section_name AS "sectionName", le.roll_number AS "rollNumber", le.status AS "enrollmentStatus", NULL AS "todayStatus",
+                count(*) OVER()::int AS total
+         FROM students s
+         LEFT JOIN LATERAL (
+           SELECT e.id, e.academic_year_id, e.class_section_id, cs.name AS section_name, e.roll_number, e.status
+           FROM enrollments e JOIN class_sections cs ON cs.id = e.class_section_id JOIN academic_years y ON y.id = e.academic_year_id
+           WHERE e.student_id = s.id ORDER BY y.start_date DESC LIMIT 1) le ON true
+         WHERE ${where.join(' AND ')}
+         ORDER BY s.name, s.id
+         LIMIT :limit OFFSET :offset`;
+    }
+    const rows = await m.sequelize.query(sql, { replacements: r, type: QueryTypes.SELECT });
+    const data = await Promise.all(rows.map(listDto));
+    // count(*) OVER() comes with the rows; only a page past the end needs a separate count.
+    let total = rows[0]?.total ?? 0;
+    if (!rows.length && offset) {
+      const all = sql.replace(/LIMIT :limit OFFSET :offset$/, '');
+      [{ total }] = await m.sequelize.query(`SELECT count(*)::int AS total FROM (${all}) x`, { replacements: r, type: QueryTypes.SELECT });
+    }
+    res.json({ data, meta: { total } });
   },
 );
 
@@ -240,7 +270,7 @@ router.patch('/students/:id', requirePerm('students.write'), yearScope(), valida
 router.post('/students/:id/photo', requirePerm('students.write'), yearScope({ required: false }), upload.image(), async (req, res) => {
   const { student, enrollment } = await loadStudent(req, req.params.id);
   if (enrollment) await assertSectionWrite(req, enrollment.classSectionId);
-  const key = await storage.saveImage(req.file.buffer, `students/${req.school.id}`);
+  const key = await storage.saveImage(req.file.buffer, `students/${req.school.id}`, { thumb: true });
   await storage.remove(student.photoKey);
   await student.update({ photoKey: key });
   res.json({ data: await svc.studentDto(student, enrollment) });

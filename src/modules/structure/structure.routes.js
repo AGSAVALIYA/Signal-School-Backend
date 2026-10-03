@@ -3,6 +3,7 @@ const { z } = require('zod');
 const { QueryTypes } = require('sequelize');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { cacheResponse } = require('../../utils/cache');
 const {
   Grade,
   ClassSection,
@@ -73,7 +74,7 @@ router.delete('/grades/:id', manage, async (req, res) => {
 });
 
 // ---- Class sections (a grade in a year) ----
-router.get('/sections', yearScope(), async (req, res) => {
+router.get('/sections', yearScope(), cacheResponse('sections'), async (req, res) => {
   const sections = await ClassSection.findAll({
     where: { schoolId: req.school.id, academicYearId: req.year.id },
     include: [

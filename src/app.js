@@ -8,6 +8,7 @@ const compression = require('compression');
 const env = require('./config/env');
 const logger = require('./utils/logger');
 const storage = require('./utils/storage');
+const cache = require('./utils/cache');
 const sequelize = require('./config/db');
 const errorHandler = require('./middlewares/errorHandler');
 const { AppError } = require('./utils/errors');
@@ -38,7 +39,8 @@ function createApp() {
   app.get('/health', async (_req, res) => {
     try {
       await sequelize.authenticate();
-      res.json({ status: 'ok', version: require('../package.json').version });
+      // Redis is optional: the API keeps working without it, so it is reported but never fails the check.
+      res.json({ status: 'ok', version: require('../package.json').version, redis: await cache.ping() });
     } catch {
       res.status(503).json({ status: 'unavailable' });
     }
@@ -56,6 +58,8 @@ function createApp() {
     rateLimit({
       windowMs: 60000,
       limit: env.NODE_ENV === 'test' ? 100000 : env.API_RATE_LIMIT,
+      store: cache.rateLimitStore('api'),
+      passOnStoreError: true,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),

@@ -42,16 +42,14 @@ async function main() {
       duration: SECONDS,
       headers: { Authorization: `Bearer ${token}`, 'Accept-Encoding': 'gzip' },
     });
-    const res = await fetch(`${BASE}/api/v1${path}`, { headers: { Authorization: `Bearer ${token}`, 'Accept-Encoding': 'gzip' } });
-    const bytes = Number(res.headers.get('content-length')) || (await res.arrayBuffer()).byteLength;
     rows.push({
       endpoint: name,
       'req/s': Math.round(r.requests.average),
       'p50 ms': r.latency.p50,
       'p99 ms': r.latency.p99,
       errors: r.non2xx + r.errors,
-      'bytes on wire': bytes,
-      gzip: res.headers.get('content-encoding') || '-',
+      // autocannon counts raw bytes read from the socket (headers + compressed body).
+      'bytes on wire': Math.round(r.throughput.total / Math.max(r.requests.total, 1)),
     });
   }
   console.table(rows);

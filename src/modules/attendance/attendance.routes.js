@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const ExcelJS = require('exceljs');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { cacheResponse } = require('../../utils/cache');
 const m = require('../../db/models');
 const svc = require('./attendance.service');
 const audit = require('../../utils/audit');
@@ -41,7 +42,7 @@ router.put(
   },
 );
 
-router.get('/attendance/today', yearScope(), async (req, res) => res.json({ data: await svc.today(req, req.year.id) }));
+router.get('/attendance/today', yearScope(), cacheResponse('attendance-today'), async (req, res) => res.json({ data: await svc.today(req, req.year.id) }));
 
 router.get(
   '/attendance/register',

@@ -36,6 +36,7 @@ async function studentDto(student, enrollment) {
     ...s,
     age: ageOf(s),
     photoUrl: await storage.urlFor(s.photoKey),
+    thumbUrl: await storage.thumbUrlFor(s.photoKey),
     enrollment: enrollment
       ? {
           id: enrollment.id,

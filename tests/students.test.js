@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const { as, reset, close, makeSchool, today, m } = require('./helpers');
+const { api, as, reset, close, makeSchool, today, m } = require('./helpers');
 
 let A;
 beforeEach(async () => {
@@ -106,4 +106,63 @@ test('exports an Excel file', async () => {
     });
   expect(res.status).toBe(200);
   expect(res.headers['content-type']).toMatch(/spreadsheet/);
+});
+
+describe('student list', () => {
+  const names = (res) => res.body.data.map((s) => s.name.split(' ')[0]);
+
+  test('is ordered like the register: class level, class, roll number', async () => {
+    await A.s1.update({ name: 'Zeta' }); // Std 1 still comes before Std 2 whatever the class is called
+    await A.students[3].enrollment.update({ rollNumber: 1 });
+    await A.students[4].enrollment.update({ rollNumber: 2 });
+    expect(names(await as(A.admin).get('/students'))).toEqual(['Asha', 'Bala', 'Chitra', 'Dev', 'Esha']);
+  });
+
+  test('status filter applies within the year too', async () => {
+    await as(A.admin).post(`/students/${A.students[0].student.id}/leave`).send({ date: today(), reason: 'migrated' });
+    const left = await as(A.admin).get('/students?status=left');
+    expect(left.body.meta.total).toBe(1);
+    expect(left.body.data[0]).toMatchObject({ status: 'left', enrollment: { sectionName: 'Std 1 A' } });
+    expect((await as(A.admin).get('/students?status=all')).body.meta.total).toBe(5);
+  });
+
+  test('search treats % and _ literally and pages report the full total', async () => {
+    expect((await as(A.admin).get('/students?q=%25')).body.meta.total).toBe(0);
+    expect(names(await as(A.admin).get('/students?q=sha'))).toEqual(['Asha', 'Esha']);
+    const first = await as(A.admin).get('/students?pageSize=2');
+    expect(first.body).toMatchObject({ meta: { total: 5 } });
+    expect(first.body.data).toHaveLength(2);
+    expect((await as(A.admin).get('/students?pageSize=2&page=9')).body).toMatchObject({ data: [], meta: { total: 5 } });
+  });
+
+  test("shows today's mark and the latest class across years", async () => {
+    const rows = A.students.slice(0, 3).map((s) => ({ studentId: s.student.id, status: 'A' }));
+    expect((await as(A.teacher).put(`/attendance/sections/${A.s1.id}/${today()}`).send({ rows })).status).toBe(200);
+    const res = await as(A.admin).get(`/students?sectionId=${A.s1.id}`);
+    expect(res.body.data.map((s) => s.todayStatus)).toEqual(['A', 'A', 'A']);
+    const all = await as(A.admin).get('/students?allYears=true');
+    expect(all.body.data[0]).toMatchObject({ todayStatus: null, enrollment: { sectionName: 'Std 1 A' } });
+  });
+});
+
+test('a student photo gets a small square thumbnail for lists', async () => {
+  const sharp = require('sharp');
+  const png = await sharp({ create: { width: 1200, height: 900, channels: 3, background: '#3a7' } })
+    .png()
+    .toBuffer();
+  const id = A.students[0].student.id;
+  const up = await as(A.admin).post(`/students/${id}/photo`).attach('photo', png, { filename: 'p.png', contentType: 'image/png' });
+  expect(up.status).toBe(200);
+  const [row] = (await as(A.admin).get(`/students?sectionId=${A.s1.id}`)).body.data;
+  expect(row.thumbUrl).toMatch(/\.thumb\.jpg\?/);
+  expect(row.photoUrl).toBeUndefined();
+  const thumb = await api().get(row.thumbUrl).buffer(true);
+  expect(thumb.status).toBe(200);
+  expect(await sharp(thumb.body).metadata()).toMatchObject({ format: 'jpeg', width: 160, height: 160 });
+  const full = (await as(A.admin).get(`/students/${id}`)).body.data;
+  expect(await sharp((await api().get(full.photoUrl).buffer(true)).body).metadata()).toMatchObject({ width: 1024 });
+  // Replacing the photo removes the old photo and its thumbnail.
+  await as(A.admin).post(`/students/${id}/photo`).attach('photo', png, { filename: 'p.png', contentType: 'image/png' });
+  expect((await api().get(row.thumbUrl)).status).toBe(404);
+  expect((await api().get(full.photoUrl)).status).toBe(404);
 });

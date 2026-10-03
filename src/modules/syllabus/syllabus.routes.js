@@ -3,6 +3,7 @@ const { z } = require('zod');
 const { QueryTypes } = require('sequelize');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { cacheResponse } = require('../../utils/cache');
 const m = require('../../db/models');
 const audit = require('../../utils/audit');
 const { findInSchool, assertSectionWrite, assertYearWritable, isStaff } = require('../../utils/scope');
@@ -135,7 +136,7 @@ router.delete('/syllabus/topics/:id/complete', requirePerm('syllabus.complete'),
 });
 
 // Progress per section and subject for the selected year.
-router.get('/syllabus/progress', yearScope(), async (req, res) => {
+router.get('/syllabus/progress', yearScope(), cacheResponse('syllabus-progress'), async (req, res) => {
   const rows = await m.sequelize.query(
     `SELECT cs.id AS "sectionId", cs.name AS "sectionName", sb.id AS "subjectId", sb.name AS "subjectName",
             count(t.id)::int AS total, count(tc.id)::int AS done, max(tc.completed_on) AS "lastCompletedOn"

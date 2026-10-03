@@ -58,7 +58,7 @@ async function getSheet(req, section, date) {
         name: e.Student.name,
         grNumber: e.Student.grNumber,
         rollNumber: e.rollNumber,
-        photoUrl: await storage.urlFor(e.Student.photoKey),
+        thumbUrl: await storage.thumbUrlFor(e.Student.photoKey),
         status: byStudent[e.studentId]?.status ?? null,
         remark: byStudent[e.studentId]?.remark ?? null,
       })),

@@ -3,6 +3,7 @@ const { Op, QueryTypes } = require('sequelize');
 const { z } = require('zod');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { cacheResponse } = require('../../utils/cache');
 const m = require('../../db/models');
 const attendance = require('../attendance/attendance.service');
 const { todayIn, addDays } = require('../../utils/dates');
@@ -30,7 +31,7 @@ const AUDIT_AREAS = [
 const q = (sql, replacements) => m.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
 
 // Principal's dashboard: setup checklist, today's attendance, trends, syllabus and at-risk students.
-router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: false }), async (req, res) => {
+router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: false }), cacheResponse('dashboard'), async (req, res) => {
   const s = req.school.id;
   const y = req.year?.id ?? 0;
   const date = todayIn(req.school.timezone);
@@ -121,7 +122,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
 });
 
 // Teacher home: my sections with today's attendance status and my subjects with progress.
-router.get('/today', yearScope({ required: false }), async (req, res) => {
+router.get('/today', yearScope({ required: false }), cacheResponse('today', { perUser: true }), async (req, res) => {
   if (!req.year) return res.json({ data: { year: null, sections: [], subjects: [], holiday: null } });
   const date = todayIn(req.school.timezone);
   const mine = !isStaff(req);
