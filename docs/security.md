@@ -49,7 +49,11 @@ least access their job needs.
 - [ ] S3 bucket with **Block all public access**, or a persistent `UPLOAD_DIR` included in backups.
 - [ ] Daily encrypted backups of Postgres and uploads; a restore tested every term.
 - [ ] Owner accounts limited to trustees; admins reviewed each academic year (deactivate staff who left).
-- [ ] Security headers / CSP from [deployment](deployment.md) on the web app.
+- [ ] Security headers / CSP from [deployment](deployment.md) on the web app (the Docker web image sets them).
+- [ ] Redis, when used, reachable only from the API (the compose file publishes no port). Cached responses contain
+      children's names and guardians' phones for up to `CACHE_TTL` seconds; Redis keeps them in memory only (no
+      persistence), so nothing reaches its disk.
+- [ ] Docker: `.env.stack` readable only by the admin (created with mode 600); never commit it.
 
 ## Reporting a problem
 

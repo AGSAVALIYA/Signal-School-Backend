@@ -18,6 +18,16 @@ Node.js 22 · Express 5 · PostgreSQL 16 (Sequelize, SQL migrations) · zod · J
 
 Screenshots use demo data (`npm run db:seed`) and are regenerated with `npm run screenshots` in the web repo.
 
+## Run with Docker (whole app, one command)
+
+```bash
+npm run stack                   # clones the web app, builds, starts Postgres + Redis + API + web → http://localhost:8080
+npm run stack -- demo           # demo data (wipes the stack's database), or:
+npm run stack -- owner --org "Trust" --school "School" --name "Owner" --phone 98XXXXXXXX
+```
+
+Details, HTTPS and backups: [deployment](docs/deployment.md#docker).
+
 ## Run locally
 
 ```bash
@@ -54,6 +64,6 @@ deployment.
 | `src/db/models` | models; associations only in `models/index.js` |
 | `src/middlewares` | `authenticate`, `schoolScope` (X-School-Id), `yearScope` (X-Academic-Year), `requirePerm`, `validate` (zod), uploads, errors |
 | `src/modules/<feature>` | routes (+ service): auth, schools, users, structure, years, students, attendance, diary, syllabus, marks, health, dashboard |
-| `src/utils` | errors (stable codes), scope checks, dates (school timezone), audit, storage (S3 or signed local files) |
-| `scripts` | migrate, seed (dev only), create-owner |
+| `src/utils` | errors (stable codes), scope checks, dates (school timezone), audit, storage (S3 or signed local files, thumbnails), cache (optional Redis) |
+| `scripts` | migrate, seed (dev only), create-owner, stack (Docker), thumbnails, perf-seed + bench (load test) |
 | `tests` | Jest + supertest against Postgres, incl. an automatic cross-school scope matrix |

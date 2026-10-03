@@ -60,7 +60,12 @@ test('rollover copies structure without completions and promotes students in one
   const asha = A.students[0].student;
   expect(await m.Student.count({ where: { name: 'Asha A' } })).toBe(1);
   expect(await m.Enrollment.count({ where: { studentId: asha.id } })).toBe(2);
-  expect((await m.Student.findOne({ where: { name: 'Chitra A' } })).status).toBe('left');
+  expect(await m.Student.findOne({ where: { name: 'Chitra A' } })).toMatchObject({ status: 'left', leftOn: A.year.endDate, leftReason: 'other' });
+  const bala = A.students[1];
+  expect(await m.Enrollment.findByPk(bala.enrollment.id)).toMatchObject({ status: 'detained', exitedOn: A.year.endDate });
+  const balaNew = await m.Enrollment.findOne({ where: { studentId: bala.student.id, academicYearId: res.body.data.academicYearId } });
+  expect(balaNew).toMatchObject({ status: 'active', previousEnrollmentId: bala.enrollment.id, enrolledOn: newYear.startDate });
+  expect((await m.ClassSection.findByPk(balaNew.classSectionId)).name).toBe('Std 1 A');
   expect((await m.Student.findOne({ where: { name: 'Dev A' } })).status).toBe('graduated');
 
   const hist = await as(A.admin).get(`/students/${asha.id}/history`);

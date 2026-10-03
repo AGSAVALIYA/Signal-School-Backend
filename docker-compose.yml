@@ -1,0 +1,69 @@
+# Whole Signal School on one machine: PostgreSQL, Redis, API and web app.
+# Easiest start: `npm run stack` (clones the web app, creates secrets in .env.stack, builds and starts everything).
+# Then open http://localhost:8080 (WEB_PORT).
+name: signal-school
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: signal
+      POSTGRES_USER: signal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (npm run stack creates one)}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U signal -d signal']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Cache and rate-limit counters only (nothing to back up): no persistence, oldest keys evicted when full.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '128mb', '--maxmemory-policy', 'allkeys-lru']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    image: signal-school-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://signal:${POSTGRES_PASSWORD}@db:5432/signal
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (npm run stack creates one)}
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Leave S3_BUCKET empty to keep photos in the "uploads" volume.
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      # The web app repository: a local checkout (npm run stack clones it to .stack/frontend) or a git URL such as
+      # https://github.com/AGSAVALIYA/Signal-School-Frontend.git#main
+      context: ${FRONTEND_CONTEXT:-.stack/frontend}
+    image: signal-school-web
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  db-data:
+  uploads:

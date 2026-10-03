@@ -12,6 +12,29 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 - `GET /audit?areas=` filter by area of the app.
 - `AGENTS.md`, `CONTRIBUTING.md`, screenshots in the docs (#6).
 - Seed data: guardian languages and an absence streak per class for demos.
+- Docker: `Dockerfile`, `docker-compose.yml` (Postgres, Redis, API, web) and `npm run stack`, which clones the web
+  app, creates secrets, builds and starts everything; `demo`, `owner`, `thumbnails`, `logs`, `down` sub-commands.
+  CI starts the whole stack on every push.
+- Photo thumbnails (160 px) made at upload, replacing the old Lambda-filled thumbnail bucket; lists return
+  `thumbUrl`; `npm run thumbnails` backfills older photos.
+- Optional Redis (`REDIS_URL`): shared rate limits and a response cache for dashboard, today, class list, syllabus
+  progress and today's absentees, invalidated by every write in the school (`CACHE_TTL`, default 60 s).
+  `/health` reports `redis`.
+- Gzip compression; `API_RATE_LIMIT`; load-test tooling (`npm run db:seed:perf`, `scripts/bench.js`) and
+  [docs/performance.md](docs/performance.md).
+
+### Changed
+- Student list is a single SQL query with lean rows (p50 90 → 34 ms, 38 KB → 2.3 KB for 50 children); dashboard
+  69 ms → 19 ms with the cache. Faster absence streaks, report cards and history; new indexes (migration 0002).
+- Excel import and the new-year rollover use bulk statements: 1,200-row import 2.0 s → 0.2 s, rollover of a
+  1,200-child school (2,400 enrollments) 46 s → 0.9 s. The per-class promotion screen uses the same code.
+- Attendance sheet and register read in parallel with plain rows; `DB_POOL_MAX` sets the connection pool.
+- `npm run dev` uses `node --watch` instead of nodemon (unpatched advisory in its `braces` dependency).
+
+### Fixed
+- Clerks could not admit children, edit them or add photos (refused by the teacher class check).
+- Student list: the status filter was ignored within a year, the order ignored class level, and `%`/`_` in a search
+  matched every child.
 
 ## 1.0.0
 

@@ -14,8 +14,8 @@ Gujarati and English.
 | [API reference](api.md) | Developers | Every endpoint with its permission, conventions, error codes |
 | [Security](security.md) | Developers, admins | Threat model, controls in place, privacy of children's data, dependency policy |
 | [Testing strategy](testing.md) | Developers, testers | Test pyramid, how to run each layer, what a release must pass, field testing with teachers |
-| [Deployment & operations](deployment.md) | Admins | Environment variables, first setup, backups, HTTPS headers, upgrades |
-
+| [Deployment & operations](deployment.md) | Admins | Docker (one command), environment variables, first setup, backups, HTTPS headers, upgrades |
+| [Performance](performance.md) | Developers | Load test with 1,200 children, bottlenecks fixed, response cache and Redis, photo thumbnails |
 | [AGENTS.md](../AGENTS.md) | Developers, AI coding agents | Commands, project map, rules that must not break, endpoint checklist |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) · [CHANGELOG.md](../CHANGELOG.md) | Contributors | Workflow, conventions, release notes |
 

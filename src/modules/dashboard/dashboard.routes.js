@@ -3,6 +3,7 @@ const { Op, QueryTypes } = require('sequelize');
 const { z } = require('zod');
 const validate = require('../../middlewares/validate');
 const { requirePerm, yearScope } = require('../../middlewares/auth');
+const { cacheResponse } = require('../../utils/cache');
 const m = require('../../db/models');
 const attendance = require('../attendance/attendance.service');
 const { todayIn, addDays } = require('../../utils/dates');
@@ -30,7 +31,7 @@ const AUDIT_AREAS = [
 const q = (sql, replacements) => m.sequelize.query(sql, { replacements, type: QueryTypes.SELECT });
 
 // Principal's dashboard: setup checklist, today's attendance, trends, syllabus and at-risk students.
-router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: false }), async (req, res) => {
+router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: false }), cacheResponse('dashboard'), async (req, res) => {
   const s = req.school.id;
   const y = req.year?.id ?? 0;
   const date = todayIn(req.school.timezone);
@@ -74,21 +75,28 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
     ),
     // Absent on each of the latest marked days (holidays are never marked, so they don't break a streak).
     q(
-      `WITH ranked AS (
-         SELECT a.student_id, a.date, a.status, row_number() OVER (PARTITION BY a.student_id ORDER BY a.date DESC) AS rn
-         FROM attendance a WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND a.date <= :date
+      `WITH candidates AS (
+         -- Only children absent at least once in the last week can be on a streak (partial index on absences).
+         SELECT DISTINCT student_id FROM attendance WHERE school_id = :s AND status = 'A' AND date > :recent AND date <= :date
        ), streaks AS (
-         SELECT student_id, coalesce(min(rn) FILTER (WHERE status <> 'A') - 1, count(*)) AS days FROM ranked GROUP BY student_id
+         -- Per child, via the (student_id, date) index: the last day marked anything but absent, then the absences after it.
+         SELECT c.student_id, k.days, k.since FROM candidates c
+         LEFT JOIN LATERAL (
+           SELECT date AS ok FROM attendance WHERE student_id = c.student_id AND date <= :date AND status <> 'A' ORDER BY date DESC LIMIT 1
+         ) last_ok ON true
+         CROSS JOIN LATERAL (
+           SELECT count(*)::int AS days, min(date) AS since FROM attendance
+           WHERE student_id = c.student_id AND academic_year_id = :y AND status = 'A' AND date <= :date AND date > coalesce(last_ok.ok, :from)
+         ) k
+         WHERE k.days >= :min
        )
-       SELECT st.id, st.name, cs.name AS "sectionName", k.days::int AS days, min(r.date) AS "since",
+       SELECT st.id, st.name, cs.name AS "sectionName", k.days, k.since,
               st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage"
-       FROM streaks k JOIN ranked r ON r.student_id = k.student_id AND r.rn <= k.days
-       JOIN students st ON st.id = k.student_id AND st.status = 'active'
+       FROM streaks k JOIN students st ON st.id = k.student_id AND st.status = 'active'
        JOIN enrollments e ON e.student_id = st.id AND e.academic_year_id = :y AND e.status = 'active'
        JOIN class_sections cs ON cs.id = e.class_section_id
-       WHERE k.days >= :min
-       GROUP BY st.id, cs.name, k.days ORDER BY k.days DESC, st.name LIMIT 50`,
-      { s, y, date, from: addDays(date, -60), min: 3 },
+       ORDER BY k.days DESC, st.name LIMIT 50`,
+      { s, y, date, from: addDays(date, -60), recent: addDays(date, -7), min: 3 },
     ),
   ]);
   res.json({
@@ -114,7 +122,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
 });
 
 // Teacher home: my sections with today's attendance status and my subjects with progress.
-router.get('/today', yearScope({ required: false }), async (req, res) => {
+router.get('/today', yearScope({ required: false }), cacheResponse('today', { perUser: true }), async (req, res) => {
   if (!req.year) return res.json({ data: { year: null, sections: [], subjects: [], holiday: null } });
   const date = todayIn(req.school.timezone);
   const mine = !isStaff(req);

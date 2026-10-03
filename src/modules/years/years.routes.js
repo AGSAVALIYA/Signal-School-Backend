@@ -161,15 +161,10 @@ router.post(
   }),
   async (req, res) => {
     const year = await findInSchool(AcademicYear, req.params.id, req);
-    await sequelize.transaction(async (transaction) => {
-      for (const item of req.v.body.items) {
-        if (item.targetSectionId) {
-          const target = await ClassSection.findOne({ where: { id: item.targetSectionId, academicYearId: year.id }, transaction });
-          if (!target) throw badRequest('ROLLOVER_INVALID');
-        }
-        await svc.applyPromotion(item, { targetYear: year, targetSectionId: item.targetSectionId, transaction });
-      }
-    });
+    const { items } = req.v.body;
+    const wanted = [...new Set(items.map((i) => i.targetSectionId).filter(Boolean))];
+    if (wanted.length && (await ClassSection.count({ where: { id: wanted, academicYearId: year.id } })) !== wanted.length) throw badRequest('ROLLOVER_INVALID');
+    await sequelize.transaction((transaction) => svc.applyPromotions(items, { targetYear: year, transaction }));
     await audit(req, 'year.promotions', { entityType: 'year', entityId: year.id, summary: `${req.v.body.items.length} students` });
     res.json({ data: { processed: req.v.body.items.length } });
   },

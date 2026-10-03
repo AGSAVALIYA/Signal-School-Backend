@@ -46,6 +46,7 @@ async function meDto(userId) {
     preferredLanguage: user.preferredLanguage,
     mustChangePassword: user.mustChangePassword,
     photoUrl: await storage.urlFor(user.photoKey),
+    thumbUrl: await storage.thumbUrlFor(user.photoKey),
     schools: user.memberships
       .filter((m) => m.School.status === 'active')
       .map((m) => ({ id: m.School.id, name: m.School.name, role: m.role, isDefault: m.isDefault, defaultLanguage: m.School.defaultLanguage })),

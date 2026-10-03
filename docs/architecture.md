@@ -8,10 +8,16 @@
 │ React 19 + MUI 9 PWA         │ ─────────────► │ Express 5 API  (/api/v1)     │ ─► │ PostgreSQL 16│
 │ TanStack Query, i18next      │ ◄───────────── │ zod validation, Sequelize 6  │    └──────────────┘
 │ IndexedDB offline queue      │                │ JWT + rotating refresh tokens│    ┌──────────────┐
-│ Service worker (app shell)   │ ── photos ───► │ sharp (re-encode, strip EXIF)│ ─► │ S3 (private) │
-└──────────────────────────────┘                └──────────────────────────────┘    │ or local disk│
+│ Service worker (app shell)   │ ── photos ───► │ sharp (re-encode, strip EXIF,│ ─► │ S3 (private) │
+└──────────────────────────────┘                │ 160 px thumbnails)           │    │ or local disk│
+                                                │ response cache ──────────────│ ─► └──────────────┘
+                                                └──────────────────────────────┘    ┌──────────────┐
+                                                                                    │ Redis (opt.) │
                                                                                     └──────────────┘
 ```
+
+With Docker (`docker-compose.yml`) an nginx container serves the web app and forwards `/api` and `/files` to the API,
+so browser and API share one origin.
 
 | Layer | Choice | Why |
 |---|---|---|
@@ -20,7 +26,8 @@
 | Validation | zod 4 | One schema = parsing + error codes per field |
 | Database | PostgreSQL 16 + Sequelize 6, plain SQL migrations (umzug) | Relational data with strong constraints; migrations are reviewable SQL, never `sync()` |
 | Auth | Short-lived JWT access token (15 min, HS256 pinned) + opaque refresh token (30 days, stored hashed, rotated, reuse detection) | Works offline-ish on phones without long-lived bearer tokens |
-| Files | Private S3 with signed URLs, or local disk with HMAC-signed expiring links | Children's photos are never public |
+| Files | Private S3 with signed URLs, or local disk with HMAC-signed expiring links; thumbnails made at upload | Children's photos are never public; lists stay light on mobile data |
+| Cache | Per-school versioned response cache, in-process or Redis (`REDIS_URL`) | Dashboard and class lists are read constantly; writes invalidate at once ([performance](performance.md)) |
 | Web | React 19, MUI 9, React Router 7, TanStack Query 5, react-hook-form + zod, i18next, Vite 8 + PWA plugin | Mainstream, accessible components, small bundles per screen |
 
 ## Back-end layout

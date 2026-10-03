@@ -36,6 +36,7 @@ async function studentDto(student, enrollment) {
     ...s,
     age: ageOf(s),
     photoUrl: await storage.urlFor(s.photoKey),
+    thumbUrl: await storage.thumbUrlFor(s.photoKey),
     enrollment: enrollment
       ? {
           id: enrollment.id,
@@ -54,17 +55,18 @@ function history(studentId) {
   return m.sequelize.query(
     `SELECT e.id AS "enrollmentId", e.status, e.roll_number AS "rollNumber", e.enrolled_on AS "enrolledOn", e.exited_on AS "exitedOn",
        y.id AS "academicYearId", y.name AS "yearName", y.status AS "yearStatus", s.id AS "sectionId", s.name AS "sectionName",
-       count(a.id) FILTER (WHERE a.status IN ('P','LATE'))::int AS present,
-       count(a.id) FILTER (WHERE a.status = 'A')::int AS absent,
-       count(a.id) FILTER (WHERE a.status = 'L')::int AS leave,
+       coalesce(a.present, 0) AS present, coalesce(a.absent, 0) AS absent, coalesce(a.leave, 0) AS leave,
        (SELECT json_agg(json_build_object('subject', sb.name, 'term', r.term, 'grade', r.grade, 'marks', r.marks, 'maxMarks', r.max_marks) ORDER BY sb.sort_order, r.term)
           FROM report_entries r JOIN subjects sb ON sb.id = r.subject_id WHERE r.enrollment_id = e.id) AS reports
      FROM enrollments e
      JOIN academic_years y ON y.id = e.academic_year_id
      JOIN class_sections s ON s.id = e.class_section_id
-     LEFT JOIN attendance a ON a.enrollment_id = e.id
+     LEFT JOIN LATERAL (
+       SELECT count(*) FILTER (WHERE status IN ('P','LATE'))::int AS present, count(*) FILTER (WHERE status = 'A')::int AS absent,
+              count(*) FILTER (WHERE status = 'L')::int AS leave
+       FROM attendance WHERE enrollment_id = e.id) a ON true
      WHERE e.student_id = :studentId
-     GROUP BY e.id, y.id, s.id ORDER BY y.start_date DESC`,
+     ORDER BY y.start_date DESC`,
     { replacements: { studentId }, type: QueryTypes.SELECT },
   );
 }

@@ -3,3 +3,5 @@ node_modules/
 uploads/
 coverage/
 *.log
+.stack/
+.env.stack

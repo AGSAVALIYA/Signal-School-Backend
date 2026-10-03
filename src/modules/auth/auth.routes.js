@@ -6,6 +6,7 @@ const { authenticate } = require('../../middlewares/auth');
 const upload = require('../../middlewares/upload');
 const { UserSchool } = require('../../db/models');
 const storage = require('../../utils/storage');
+const cache = require('../../utils/cache');
 const { forbidden } = require('../../utils/errors');
 const env = require('../../config/env');
 const svc = require('./auth.service');
@@ -13,16 +14,18 @@ const svc = require('./auth.service');
 const LANGS = ['en', 'hi', 'mr', 'gu'];
 const password = z.string().min(8).max(100);
 
-const limiter = (limit) =>
+const limiter = (name, limit) =>
   rateLimit({
     windowMs: 15 * 60000,
     limit: env.NODE_ENV === 'test' ? 10000 : limit,
+    store: cache.rateLimitStore(name),
+    passOnStoreError: true,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),
   });
-const loginLimiter = limiter(env.LOGIN_RATE_LIMIT);
-const refreshLimiter = limiter(120);
+const loginLimiter = limiter('login', env.LOGIN_RATE_LIMIT);
+const refreshLimiter = limiter('refresh', 120);
 
 router.post(
   '/auth/login',
@@ -59,7 +62,7 @@ router.post('/me/password', authenticate, validate({ body: z.object({ currentPas
 );
 
 router.post('/me/photo', authenticate, upload.image(), async (req, res) => {
-  const key = await storage.saveImage(req.file.buffer, 'users');
+  const key = await storage.saveImage(req.file.buffer, 'users', { thumb: true });
   await storage.remove(req.user.photoKey);
   await req.user.update({ photoKey: key });
   res.json({ data: await svc.meDto(req.user.id) });

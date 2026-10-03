@@ -7,6 +7,7 @@ const ssl =
 module.exports = new Sequelize(env.DATABASE_URL, {
   logging: false,
   dialectOptions: ssl ? { ssl } : {},
-  pool: { max: 10, idle: 10000 },
+  // Requests run independent queries in parallel; keep max × API instances below Postgres max_connections (100).
+  pool: { max: env.DB_POOL_MAX, idle: 10000 },
   define: { underscored: true, timestamps: true },
 });

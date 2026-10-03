@@ -39,12 +39,16 @@ the schema is dropped and migrated fresh each run, so migrations are tested too.
 | `security.test.js` | **Scope matrix**: every route (discovered automatically) needs login, and every route with an id is invisible to another trust (≥ 400, never 500). Teacher/admin boundaries |
 | `hardening.test.js` | Refresh-token reuse detection, `alg:none`/forged JWTs, uniform login errors, signed file links, fake images, staff contact privacy, request-id sanitising, rollover keys per school |
 | `auth.test.js` | Login, lockout, rotation, password change and deactivation end sessions, temp passwords, linking a teacher to a 2nd school |
-| `students.test.js` | Admission, GR allocation and duplicates, import preview/commit, leave/readmit, history |
+| `students.test.js` | Admission (teacher's own class, clerk any class), GR allocation and duplicates, import preview/commit, leave/readmit, history; list order, status filter, literal `%`/`_` search, paging totals; photo thumbnails (size, deleted with the photo) |
+| `cache.test.js` | Response cache: a write shows on the next read, refused writes keep the cache, per-user and per-school keys. Runs in-process; set `TEST_REDIS_URL=redis://localhost:6379` to run it against Redis (CI does) |
 | `attendance.test.js` | Sheets, edit window, future dates, holidays, newest-mark-wins for offline saves, closed/unlocked years, register, school timezone |
 | `years.test.js` | Date validation and overlaps, rollover preview/apply (class-level order, no ticks copied), idempotency under concurrency, late promotions |
 | `syllabus.test.js` | Tree edits keep ticks, taught topics cannot be removed, teacher may untick only own, progress, marks → report card, dashboard, class diary |
 | `followup.test.js` | Possible duplicates (similar names, same phone, isolation), absence streaks (holidays don't break them), one child's month, activity-log filters |
 | `health.test.js` | Health check-ups, follow-ups, leaving destination, marks above maximum, import date validation, dashboard counts |
+
+The response cache is **off** in tests (`CACHE_TTL=0`) except in `cache.test.js`, because many tests change rows
+directly through models.
 
 Writing a new API test: use `makeSchool()` from `tests/helpers.js` (owner, admin, two teachers, two classes, five
 children) and `as(user).get(…)`. Any new route is automatically included in the scope matrix — add its id prefix to
@@ -65,12 +69,24 @@ Journeys: teacher takes attendance with one tap per child; language switch chang
 still fits a phone; clerk records a health check-up, marks a child as left and opens the leaving certificate; clerk is
 warned before admitting a child twice and sees the child's month; principal filters the activity log.
 
+Against the Docker stack instead (what users get: nginx, Redis cache, production build):
+
+```bash
+npm run stack -- demo                                           # API repo; LOGIN_RATE_LIMIT=1000 in .env.stack for the run
+E2E_BASE_URL=http://localhost:8080 npx playwright test          # web repo
+```
+
 `e2e/a11y.spec.js` runs axe-core (WCAG 2.1 A/AA) on every screen for owner, clerk and teacher, including the student
 and staff profile tabs and the attendance sheet; it must report zero violations.
 
 `npm run screenshots` (web repo) refreshes the images in `docs/screenshots/` used by the READMEs.
 
-## 5. Manual checks before a release
+## 5. Performance
+
+`npm run db:seed:perf` (1,200 children, two years) and `node scripts/bench.js` measure the busiest endpoints; see
+[performance](performance.md) for the method and the numbers to compare against.
+
+## 6. Manual checks before a release
 
 - [ ] Print the monthly register (landscape), a report card and a leaving certificate (portrait) in **Marathi and
       Gujarati** — characters must join correctly.
@@ -79,7 +95,7 @@ and staff profile tabs and the attendance sheet; it must report zero violations.
 - [ ] Screen reader spot check (TalkBack) on Today and attendance: each child announces name and status.
 - [ ] Rollover wizard on a copy of real data; compare counts with the paper register.
 
-## 6. Field testing with teachers (each term)
+## 7. Field testing with teachers (each term)
 
 Non-technical users find problems no automated test does. Run short sessions (20 minutes, one teacher, her own phone):
 
@@ -96,5 +112,7 @@ takes attendance **without help**; zero lost attendance reports per term.
 ## CI
 
 Both repositories run lint, tests, build and `npm audit` on every push and pull request (`.github/workflows/ci.yml`).
-The API workflow starts a Postgres service container. End-to-end tests run locally or on demand because they need both
+The API workflow starts Postgres and Redis service containers, and a second job builds both Docker images and starts
+the whole stack with `npm run stack` (using the web app branch with the same name, else `main`), then checks
+`/health`, the web page and a login through nginx. The web workflow also builds its Docker image. End-to-end tests run locally or on demand because they need both
 repositories.

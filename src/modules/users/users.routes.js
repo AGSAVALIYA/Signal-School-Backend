@@ -39,6 +39,7 @@ async function userDto(user, schoolId) {
     lastLoginAt: user.lastLoginAt,
     mustChangePassword: user.mustChangePassword,
     photoUrl: await storage.urlFor(user.photoKey),
+    thumbUrl: await storage.thumbUrlFor(user.photoKey),
   };
 }
 

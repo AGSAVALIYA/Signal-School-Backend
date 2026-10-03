@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS attendance_enrollment, attendance_recent_absent, enrollments_year_status, subjects_year, report_entries_subject_term, health_checks_school;
