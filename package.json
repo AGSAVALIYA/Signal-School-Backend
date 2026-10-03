@@ -19,7 +19,8 @@
     "format": "prettier --write \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\" eslint.config.js",
     "format:check": "prettier --check \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\" eslint.config.js",
     "db:seed:perf": "node scripts/perf-seed.js",
-    "thumbnails": "node scripts/make-thumbnails.js"
+    "thumbnails": "node scripts/make-thumbnails.js",
+    "stack": "sh scripts/stack.sh"
   },
   "jest": {
     "testEnvironment": "node",
@@ -28,7 +29,10 @@
     "setupFiles": [
       "./tests/env.js"
     ],
-    "maxWorkers": 1
+    "maxWorkers": 1,
+    "roots": [
+      "<rootDir>/tests"
+    ]
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1145.0",

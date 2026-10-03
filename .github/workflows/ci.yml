@@ -11,6 +11,10 @@ jobs:
         env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: signal_test }
         ports: ['5432:5432']
         options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,4 +24,28 @@ jobs:
       - run: npm run format:check
       - run: npm audit --audit-level=moderate
       - run: npm test
-        env: { TEST_DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/signal_test' }
+        env: { TEST_DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/signal_test', TEST_REDIS_URL: 'redis://localhost:6379' }
+
+  # Builds both images and starts the whole stack (db, redis, api, web) the way `npm run stack` does on a server.
+  stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the web app branch (same name as this branch if it exists, else main)
+        run: |
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git ls-remote --exit-code --heads https://github.com/AGSAVALIYA/Signal-School-Frontend.git "$ref" >/dev/null || ref=main
+          echo "FRONTEND_REF=$ref" >> "$GITHUB_ENV"
+      - run: npm run stack
+      - name: Smoke test through the web container
+        run: |
+          curl -fsS http://localhost:8080/health | grep -q '"redis":"ok"'
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          npm run stack -- demo
+          token=$(curl -fsS http://localhost:8080/api/v1/auth/login -H 'content-type: application/json' \
+            -d '{"identifier":"owner@demo.test","password":"password123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.accessToken')
+          curl -fsS -H "Authorization: Bearer $token" http://localhost:8080/api/v1/students | node -e 'const d=JSON.parse(require("fs").readFileSync(0)); if (!d.meta.total) process.exit(1)'
+      - if: failure()
+        run: npm run stack -- logs --no-color --tail 200 || true
+      - if: always()
+        run: npm run stack -- down -v

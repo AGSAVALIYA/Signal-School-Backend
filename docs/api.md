@@ -15,6 +15,9 @@ Base URL: `/api/v1`. JSON in and out. Every response is `{ data, meta? }` or `{ 
 - Lists accept `page` and `pageSize` (max 100) where noted and return `meta.total`.
 - Dates are `YYYY-MM-DD` in the school's timezone (default Asia/Kolkata).
 - Rate limits: 600 requests/min per IP overall; login 20 / 15 min; refresh 120 / 15 min → `429 RATE_LIMITED`.
+- Responses over 1 KB are gzip-compressed when the client accepts it.
+- Some heavy reads (`/dashboard`, `/today`, `/sections`, `/syllabus/progress`, `/attendance/today`) are cached per
+  school and carry `X-Cache: HIT|MISS`; any successful write in the school invalidates them before it responds.
 
 ### Errors
 
@@ -95,13 +98,13 @@ assigned to them; owners and admins bypass assignment checks.
 ### Students
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/students` | any | `sectionId`, `q`, `status`, `allYears`, paging; includes today's attendance |
-| POST | `/students` | teacher (own class), clerk, admin, owner | GR auto if empty |
+| GET | `/students` | any | `sectionId`, `q` (name, GR prefix or guardian phone), `status` (`active`, `left`, `graduated`, `all`), `allYears`, paging. Lean rows: `id, name, grNumber, status, gender, guardianPhone, thumbUrl, todayStatus, enrollment { id, academicYearId, classSectionId, sectionName, rollNumber, status }`, in register order (class level, class, roll number); with `allYears=true` each child once with their latest class, by name |
+| POST | `/students` | teacher (own class), clerk (any class), admin, owner | GR auto if empty |
 | GET | `/students/possible-duplicates?name&guardianPhone` | teacher, clerk, admin, owner | ≤ 5 children of this school with a similar name (trigram) or the same guardian phone, incl. those who left; for "Is this the same child?" |
 | GET | `/students/:id`, `/students/:id/history` | any | |
 | GET | `/students/:id/attendance?month=YYYY-MM` | any | every day of the month: status, holiday/weekly off, totals and % |
 | PATCH | `/students/:id` | as POST | |
-| POST | `/students/:id/photo` | as POST | |
+| POST | `/students/:id/photo` | as POST | multipart `photo`; stores a 1024 px photo and a 160 px thumbnail |
 | POST | `/students/:id/leave` | clerk, admin, owner | `{ date, reason, note?, toSchool? }` |
 | POST | `/students/:id/readmit` | clerk, admin, owner | `{ classSectionId }` |
 | GET | `/students-import/template`; POST `/students-import/preview` (multipart `file`), `/students-import` | clerk, admin, owner | up to 2000 rows |
@@ -137,6 +140,8 @@ assigned to them; owners and admins bypass assignment checks.
 ### Files
 
 `GET /files/<key>?e=<expiry>&s=<signature>` — only when S3 is not configured. Links come from the API (`photoUrl`,
-`logoUrl`) and expire after 2–3 hours.
+`thumbUrl`, `logoUrl`) and expire after 2–3 hours. `thumbUrl` (student and staff lists, attendance sheet, `/auth/me`)
+is a 160 × 160 JPEG for avatars; use `photoUrl` only where the photo is shown large.
 
-`GET /health` — `{ status: "ok", version }` or `503` when the database is unreachable (for load balancers/uptime checks).
+`GET /health` — `{ status: "ok", version, redis: "ok" | "down" | "off" }` or `503` when the database is unreachable
+(for load balancers/uptime checks). Redis is optional, so `"down"` does not fail the check.

@@ -1,7 +1,9 @@
 # Deployment & operations
 
-A small NGO server is enough: 1 vCPU, 1–2 GB RAM, PostgreSQL 16, Node.js 22, a reverse proxy with HTTPS (Caddy or
-nginx). The web app is static files and can be served by the same proxy or any static host.
+A small NGO server is enough: 1 vCPU, 1–2 GB RAM. Two ways to run it:
+
+- **Docker (recommended)**: one command starts PostgreSQL, Redis, the API and the web app — see [Docker](#docker).
+- **By hand**: PostgreSQL 16, Node.js 22, a reverse proxy with HTTPS (Caddy or nginx); the web app is static files.
 
 ## Environment variables (API)
 
@@ -20,6 +22,10 @@ nginx). The web app is static files and can be served by the same proxy or any s
 | `UPLOAD_DIR` | | `uploads` | Must be persistent and backed up when used |
 | `LOG_LEVEL` | | `info` | |
 | `LOGIN_RATE_LIMIT` | | `20` | Logins per IP per 15 min. Keep the default in production; raise only for local e2e runs |
+| `API_RATE_LIMIT` | | `600` | Requests per IP per minute across the API; raise only for load tests |
+| `REDIS_URL` | when running more than one API instance | `redis://redis:6379` | Shares rate limits and the response cache. Optional on one server (in-process cache) |
+| `CACHE_TTL` | | `60` | Seconds a cached read may live; writes invalidate at once. `0` turns the cache off |
+| `RUN_MIGRATIONS` | | `true` | Docker image only: run migrations before starting. Set `false` when several API containers start together |
 
 Web app: `VITE_API_URL` at build time (empty when the API is served under the same origin at `/api`).
 
@@ -81,6 +87,17 @@ pg_dump --format=custom --file=/backups/signal-$(date +%F).dump "$DATABASE_URL"
 tar czf /backups/uploads-$(date +%F).tgz uploads/      # only when files are stored on disk
 # restore
 pg_restore --clean --if-exists --dbname="$DATABASE_URL" /backups/signal-2026-10-01.dump
+redis-cli -u "$REDIS_URL" FLUSHDB                       # only with Redis: drop answers cached from the old data
+```
+
+With Docker:
+
+```bash
+docker compose --env-file .env.stack exec -T db pg_dump -U signal --format=custom signal > /backups/signal-$(date +%F).dump
+docker run --rm -v signal-school_uploads:/u -v /backups:/b alpine tar czf /b/uploads-$(date +%F).tgz -C /u .
+# restore
+docker compose --env-file .env.stack exec -T db pg_restore -U signal --clean --if-exists -d signal < /backups/signal-2026-10-01.dump
+docker compose --env-file .env.stack exec redis redis-cli FLUSHDB
 ```
 
 Test a restore on a spare database once per term. Encrypt backups that leave the server.
@@ -93,23 +110,48 @@ Test a restore on a spare database once per term. Encrypt backups that leave the
 3. Restart the API, then deploy the new web `dist/`. Open tabs show "A new version is available"; old tabs that try to
    load removed code reload themselves once.
 
+With Docker: back up, `git pull`, `npm run stack` (migrations run when the API container starts).
+
+Photos uploaded before thumbnails existed (or imported from the old app): `npm run thumbnails` once
+(`npm run stack -- thumbnails` with Docker). Lists show initials until a thumbnail exists.
+
 ## Monitoring
 
 - `GET /health` returns 200 with the version, or 503 when the database is unreachable — point an uptime checker at it.
+  `"redis": "down"` means the API is running without its cache (slower, still correct); `"off"` means no Redis configured.
 - Logs are JSON (pino) with `requestId`; users can quote the request id shown in error reports.
 - Watch for repeated `401 SESSION_EXPIRED` from one user after a refresh-token reuse (possible stolen token): reset their
   password.
 
-## Docker (optional)
+## Docker
 
-```dockerfile
-FROM node:22-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY src ./src
-COPY scripts ./scripts
-USER node
-EXPOSE 3000
-CMD ["node", "src/server.js"]
+`docker-compose.yml` in this repository runs everything on one machine:
+
+| Service | Image | Notes |
+|---|---|---|
+| `db` | `postgres:16-alpine` | Data in the `db-data` volume; not published outside Docker |
+| `redis` | `redis:7-alpine` | Cache and rate-limit counters only: no persistence, 128 MB, oldest keys evicted |
+| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume |
+| `web` | built from the web app's `Dockerfile` | nginx: the app, `/api` and `/files` proxied to `api`, gzip, security headers. Published on `WEB_PORT` (8080) |
+
+```bash
+npm run stack                    # first run: creates .env.stack with random secrets, clones the web app into
+                                 # .stack/frontend, builds both images, starts all four and waits until healthy
+npm run stack -- owner --org "Samarth Bharat Vyaspeeth" --school "Signal Shala, Thane" --name "Principal" --phone 98XXXXXXXX
+npm run stack -- demo            # or: demo data instead (WIPES the stack's database)
+npm run stack -- ps | logs | down
+npm run stack                    # later: pulls the latest web app, rebuilds, restarts what changed
 ```
+
+Options (environment variables or lines in `.env.stack`): `FRONTEND_REF` (branch/tag of the web app, default `main`),
+`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET` and AWS keys,
+`LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
+and `POSTGRES_PASSWORD` is fixed once the database volume exists.
+
+**HTTPS.** The `web` container speaks plain HTTP. Put Caddy or a host nginx with a certificate in front of port 8080,
+set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable
+`set_real_ip_from` for that proxy (so rate limits see each phone's IP, not the proxy's) and the
+`Strict-Transport-Security` header. Example `Caddyfile`: `app.signalschool.org { reverse_proxy localhost:8080 }`.
+
+**Images on their own.** `docker build -t signal-school-api .` here and `docker build -t signal-school-web .` in the web
+app. The web image takes `API_UPSTREAM` (default `http://api:3000`) at run time and `VITE_API_URL` as a build argument.
