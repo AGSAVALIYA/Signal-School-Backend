@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const pinoHttp = require('pino-http');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 const env = require('./config/env');
 const logger = require('./utils/logger');
 const storage = require('./utils/storage');
@@ -30,6 +31,8 @@ function createApp() {
     next();
   });
   app.use(pinoHttp({ logger, genReqId: (req) => req.id, autoLogging: env.NODE_ENV !== 'test' }));
+  // JSON shrinks ~85% with gzip: the difference between seconds and instant on 2G/3G school phones.
+  app.use(compression({ threshold: 1024 }));
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', async (_req, res) => {
@@ -52,7 +55,7 @@ function createApp() {
     '/api/v1',
     rateLimit({
       windowMs: 60000,
-      limit: env.NODE_ENV === 'test' ? 100000 : 600,
+      limit: env.NODE_ENV === 'test' ? 100000 : env.API_RATE_LIMIT,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
       handler: (req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment', requestId: req.id } }),

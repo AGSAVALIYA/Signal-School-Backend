@@ -19,6 +19,8 @@ const schema = z.object({
   LOG_LEVEL: z.string().default('info'),
   // Logins per IP per 15 minutes. Raise only for local end-to-end test runs (many logins from one machine).
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(20),
+  // Requests per IP per minute across the API (raise for load tests only).
+  API_RATE_LIMIT: z.coerce.number().int().positive().default(600),
 });
 
 const parsed = schema

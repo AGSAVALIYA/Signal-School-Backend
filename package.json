@@ -17,7 +17,8 @@
     "test": "jest --runInBand",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\" eslint.config.js",
-    "format:check": "prettier --check \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\" eslint.config.js"
+    "format:check": "prettier --check \"src/**/*.js\" \"scripts/*.js\" \"tests/*.js\" eslint.config.js",
+    "db:seed:perf": "node scripts/perf-seed.js"
   },
   "jest": {
     "testEnvironment": "node",
@@ -32,6 +33,7 @@
     "@aws-sdk/client-s3": "^3.1145.0",
     "@aws-sdk/s3-request-presigner": "^3.1145.0",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^18.0.5",
     "exceljs": "^4.4.0",
@@ -51,6 +53,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "autocannon": "^8.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",

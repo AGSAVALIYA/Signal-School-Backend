@@ -101,8 +101,12 @@ router.get('/report-cards/:studentId', yearScope(), validate({ query: z.object({
      WHERE sb.class_section_id = :c ORDER BY sb.sort_order, sb.name`,
     { replacements: { e: enrollment.id, t: req.v.query.term, c: enrollment.classSectionId }, type: QueryTypes.SELECT },
   );
-  const att = await m.Attendance.findAll({ where: { enrollmentId: enrollment.id }, attributes: ['status'] });
-  const present = att.filter((a) => PRESENT.includes(a.status)).length;
+  // Counted in SQL (index on enrollment_id) instead of loading a year of rows.
+  const [att] = await m.sequelize.query(
+    `SELECT count(*)::int AS total, count(*) FILTER (WHERE status IN (:present))::int AS present FROM attendance WHERE enrollment_id = :e`,
+    { replacements: { e: enrollment.id, present: PRESENT }, type: QueryTypes.SELECT },
+  );
+  const { present } = att;
   res.json({
     data: {
       school: { name: req.school.name, address: req.school.address, logoUrl: await storage.urlFor(req.school.logoKey) },
@@ -119,7 +123,7 @@ router.get('/report-cards/:studentId', yearScope(), validate({ query: z.object({
       section: enrollment.ClassSection.name,
       rollNumber: enrollment.rollNumber,
       subjects,
-      attendance: { present, total: att.length, percent: att.length ? Math.round((100 * present) / att.length) : null },
+      attendance: { present, total: att.total, percent: att.total ? Math.round((100 * present) / att.total) : null },
     },
   });
 });

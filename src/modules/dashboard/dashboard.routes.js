@@ -74,21 +74,28 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
     ),
     // Absent on each of the latest marked days (holidays are never marked, so they don't break a streak).
     q(
-      `WITH ranked AS (
-         SELECT a.student_id, a.date, a.status, row_number() OVER (PARTITION BY a.student_id ORDER BY a.date DESC) AS rn
-         FROM attendance a WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND a.date <= :date
+      `WITH candidates AS (
+         -- Only children absent at least once in the last week can be on a streak (partial index on absences).
+         SELECT DISTINCT student_id FROM attendance WHERE school_id = :s AND status = 'A' AND date > :recent AND date <= :date
        ), streaks AS (
-         SELECT student_id, coalesce(min(rn) FILTER (WHERE status <> 'A') - 1, count(*)) AS days FROM ranked GROUP BY student_id
+         -- Per child, via the (student_id, date) index: the last day marked anything but absent, then the absences after it.
+         SELECT c.student_id, k.days, k.since FROM candidates c
+         LEFT JOIN LATERAL (
+           SELECT date AS ok FROM attendance WHERE student_id = c.student_id AND date <= :date AND status <> 'A' ORDER BY date DESC LIMIT 1
+         ) last_ok ON true
+         CROSS JOIN LATERAL (
+           SELECT count(*)::int AS days, min(date) AS since FROM attendance
+           WHERE student_id = c.student_id AND academic_year_id = :y AND status = 'A' AND date <= :date AND date > coalesce(last_ok.ok, :from)
+         ) k
+         WHERE k.days >= :min
        )
-       SELECT st.id, st.name, cs.name AS "sectionName", k.days::int AS days, min(r.date) AS "since",
+       SELECT st.id, st.name, cs.name AS "sectionName", k.days, k.since,
               st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage"
-       FROM streaks k JOIN ranked r ON r.student_id = k.student_id AND r.rn <= k.days
-       JOIN students st ON st.id = k.student_id AND st.status = 'active'
+       FROM streaks k JOIN students st ON st.id = k.student_id AND st.status = 'active'
        JOIN enrollments e ON e.student_id = st.id AND e.academic_year_id = :y AND e.status = 'active'
        JOIN class_sections cs ON cs.id = e.class_section_id
-       WHERE k.days >= :min
-       GROUP BY st.id, cs.name, k.days ORDER BY k.days DESC, st.name LIMIT 50`,
-      { s, y, date, from: addDays(date, -60), min: 3 },
+       ORDER BY k.days DESC, st.name LIMIT 50`,
+      { s, y, date, from: addDays(date, -60), recent: addDays(date, -7), min: 3 },
     ),
   ]);
   res.json({
