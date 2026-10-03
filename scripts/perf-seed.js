@@ -32,6 +32,9 @@ async function run() {
     { p: startPrev, c: startCur },
   );
   await q(`INSERT INTO grades (school_id, name, sort_order) SELECT 1, 'Grade ' || g, g FROM generate_series(1, ${CLASSES / 2}) g`);
+  // Each grade promotes to the next; the last one is final (so the rollover benchmark promotes and graduates).
+  await q(`UPDATE grades g SET next_grade_id = n.id FROM grades n WHERE n.sort_order = g.sort_order + 1`);
+  await q(`UPDATE grades SET is_final = true WHERE next_grade_id IS NULL`);
   // Two sections per grade, in both years
   await q(`INSERT INTO class_sections (school_id, academic_year_id, grade_id, name, sort_order)
            SELECT 1, y, g, 'Grade ' || g || ' ' || s, so FROM generate_series(1, 2) y, generate_series(1, ${CLASSES / 2}) g,

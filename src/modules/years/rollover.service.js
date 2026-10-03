@@ -1,4 +1,4 @@
-const { Op, UniqueConstraintError } = require('sequelize');
+const { Op, QueryTypes, UniqueConstraintError } = require('sequelize');
 const m = require('../../db/models');
 const { conflict, badRequest, notFound } = require('../../utils/errors');
 
@@ -62,33 +62,79 @@ async function buildPlan(schoolId, sourceYearId, { name, startDate, endDate }) {
   };
 }
 
-// Applies one promotion decision to a student. Shared by the wizard and the later per-class promotion screen.
-async function applyPromotion(item, { targetYear, targetSectionId, sourceYearId, transaction }) {
-  const old = await m.Enrollment.findOne({ where: { id: item.enrollmentId }, transaction, lock: transaction.LOCK.UPDATE });
-  if (!old || old.schoolId !== targetYear.schoolId) throw notFound();
-  if (sourceYearId && old.academicYearId !== sourceYearId) throw badRequest('ROLLOVER_INVALID', { params: { enrollmentId: old.id } });
-  if (old.academicYearId === targetYear.id) throw badRequest('ROLLOVER_INVALID');
-  const sourceYear = await m.AcademicYear.findByPk(old.academicYearId, { transaction });
-  const exitedOn = sourceYear.endDate;
+const EXIT_STATUS = { promote: 'promoted', detain: 'detained', leave: 'left', graduate: 'graduated' };
+const STUDENT_STATUS = { promote: 'active', detain: 'active', leave: 'left', graduate: 'graduated' };
+const CHUNK = 1000;
+const chunks = (list) => Array.from({ length: Math.ceil(list.length / CHUNK) }, (_, i) => list.slice(i * CHUNK, (i + 1) * CHUNK));
 
-  if (item.action === 'promote' || item.action === 'detain') {
-    if (!targetSectionId) throw badRequest('ROLLOVER_INVALID', { params: { enrollmentId: old.id } });
-    await old.update({ status: item.action === 'promote' ? 'promoted' : 'detained', exitedOn }, { transaction });
-    const [enrollment] = await m.Enrollment.findOrCreate({
-      where: { studentId: old.studentId, academicYearId: targetYear.id },
-      defaults: { schoolId: old.schoolId, classSectionId: targetSectionId, status: 'active', enrolledOn: targetYear.startDate, previousEnrollmentId: old.id },
-      transaction,
-    });
-    await enrollment.update({ classSectionId: targetSectionId, status: 'active' }, { transaction });
-    await m.Student.update({ status: 'active' }, { where: { id: old.studentId }, transaction });
-  } else if (item.action === 'leave') {
-    await old.update({ status: 'left', exitedOn }, { transaction });
-    await m.Student.update({ status: 'left', leftOn: exitedOn, leftReason: item.reason || 'other' }, { where: { id: old.studentId }, transaction });
-  } else if (item.action === 'graduate') {
-    await old.update({ status: 'graduated', exitedOn }, { transaction });
-    await m.Student.update({ status: 'graduated', leftOn: exitedOn }, { where: { id: old.studentId }, transaction });
-  } else {
-    throw badRequest('ROLLOVER_INVALID');
+// Applies promotion decisions ({ enrollmentId, action, targetSectionId, reason }) in a few set-based statements per
+// 1,000 children, instead of ~7 queries per child. Shared by the wizard and the later per-class promotion screen.
+// promote/detain: old enrollment closed, enrollment in targetSectionId (created or moved), child active again.
+// leave/graduate: old enrollment closed, child marked left/graduated on the source year's last day.
+async function applyPromotions(items, { targetYear, sourceYearId, transaction }) {
+  const byId = new Map(items.map((i) => [i.enrollmentId, i])); // the last decision for a child wins
+  if (!byId.size) return;
+  const q = (sql, replacements, type) => m.sequelize.query(sql, { replacements, transaction, ...(type ? { type } : {}) });
+  const olds = [];
+  for (const ids of chunks([...byId.keys()])) {
+    olds.push(
+      ...(await q(
+        `SELECT e.id, e.school_id AS "schoolId", e.student_id AS "studentId", e.academic_year_id AS "yearId", y.end_date AS "endDate"
+         FROM enrollments e JOIN academic_years y ON y.id = e.academic_year_id WHERE e.id IN (:ids) FOR UPDATE OF e`,
+        { ids },
+        QueryTypes.SELECT,
+      )),
+    );
+  }
+  if (olds.length !== byId.size || olds.some((o) => o.schoolId !== targetYear.schoolId)) throw notFound();
+  for (const o of olds) {
+    if (sourceYearId && o.yearId !== sourceYearId) throw badRequest('ROLLOVER_INVALID', { params: { enrollmentId: o.id } });
+    if (o.yearId === targetYear.id) throw badRequest('ROLLOVER_INVALID');
+    const item = byId.get(o.id);
+    if (!EXIT_STATUS[item.action]) throw badRequest('ROLLOVER_INVALID');
+    if ((item.action === 'promote' || item.action === 'detain') && !item.targetSectionId)
+      throw badRequest('ROLLOVER_INVALID', { params: { enrollmentId: o.id } });
+  }
+
+  for (const part of chunks(olds)) {
+    const rows = part.map((o) => ({ ...o, ...byId.get(o.id) }));
+    await q(
+      `UPDATE enrollments e SET status = v.status, exited_on = v.exited_on, updated_at = now()
+       FROM unnest(ARRAY[:ids]::int[], ARRAY[:statuses]::text[], ARRAY[:dates]::date[]) AS v(id, status, exited_on) WHERE e.id = v.id`,
+      { ids: rows.map((r) => r.id), statuses: rows.map((r) => EXIT_STATUS[r.action]), dates: rows.map((r) => r.endDate) },
+    );
+    // One new enrollment per child (a child can appear once per target year).
+    const moving = [...new Map(rows.filter((r) => r.targetSectionId).map((r) => [r.studentId, r])).values()];
+    if (moving.length) {
+      await q(
+        `INSERT INTO enrollments (school_id, academic_year_id, student_id, class_section_id, status, enrolled_on, previous_enrollment_id, created_at, updated_at)
+         SELECT :school, :year, v.student_id, v.section_id, 'active', :start, v.prev_id, now(), now()
+         FROM unnest(ARRAY[:students]::int[], ARRAY[:sections]::int[], ARRAY[:prev]::int[]) AS v(student_id, section_id, prev_id)
+         ON CONFLICT (student_id, academic_year_id) DO UPDATE SET class_section_id = EXCLUDED.class_section_id, status = 'active', updated_at = now()`,
+        {
+          school: targetYear.schoolId,
+          year: targetYear.id,
+          start: targetYear.startDate,
+          students: moving.map((r) => r.studentId),
+          sections: moving.map((r) => r.targetSectionId),
+          prev: moving.map((r) => r.id),
+        },
+      );
+    }
+    await q(
+      `UPDATE students s SET status = v.status,
+         left_on = CASE WHEN v.status = 'active' THEN s.left_on ELSE v.left_on END,
+         left_reason = CASE WHEN v.status = 'left' THEN v.reason ELSE s.left_reason END,
+         updated_at = now()
+       FROM unnest(ARRAY[:students]::int[], ARRAY[:statuses]::text[], ARRAY[:dates]::date[], ARRAY[:reasons]::text[]) AS v(id, status, left_on, reason)
+       WHERE s.id = v.id`,
+      {
+        students: rows.map((r) => r.studentId),
+        statuses: rows.map((r) => STUDENT_STATUS[r.action]),
+        dates: rows.map((r) => r.endDate),
+        reasons: rows.map((r) => (r.action === 'leave' ? r.reason || 'other' : null)),
+      },
+    );
   }
 }
 
@@ -212,11 +258,12 @@ function createFromPlan(schoolId, userId, plan, idempotencyKey) {
 
     // Promotions
     const counts = { promote: 0, detain: 0, leave: 0, graduate: 0 };
-    for (const p of plan.promotions || []) {
-      const targetSectionId = p.targetKey ? keyToId[p.targetKey] : null;
-      await applyPromotion(p, { targetYear: year, targetSectionId, sourceYearId: source.id, transaction });
-      counts[p.action] += 1;
-    }
+    const promotions = plan.promotions || [];
+    promotions.forEach((p) => (counts[p.action] += 1));
+    await applyPromotions(
+      promotions.map((p) => ({ ...p, targetSectionId: p.targetKey ? keyToId[p.targetKey] : null })),
+      { targetYear: year, sourceYearId: source.id, transaction },
+    );
 
     if (plan.activate) await activateYear(year, transaction);
 
@@ -235,4 +282,4 @@ function createFromPlan(schoolId, userId, plan, idempotencyKey) {
   });
 }
 
-module.exports = { buildPlan, applyPlan, applyPromotion, activateYear, assertNoOverlap, mapTarget };
+module.exports = { buildPlan, applyPlan, applyPromotions, activateYear, assertNoOverlap, mapTarget };

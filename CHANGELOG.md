@@ -26,6 +26,9 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 ### Changed
 - Student list is a single SQL query with lean rows (p50 90 → 34 ms, 38 KB → 2.3 KB for 50 children); dashboard
   69 ms → 19 ms with the cache. Faster absence streaks, report cards and history; new indexes (migration 0002).
+- Excel import and the new-year rollover use bulk statements: 1,200-row import 2.0 s → 0.2 s, rollover of a
+  1,200-child school (2,400 enrollments) 46 s → 0.9 s. The per-class promotion screen uses the same code.
+- Attendance sheet and register read in parallel with plain rows; `DB_POOL_MAX` sets the connection pool.
 - `npm run dev` uses `node --watch` instead of nodemon (unpatched advisory in its `braces` dependency).
 
 ### Fixed

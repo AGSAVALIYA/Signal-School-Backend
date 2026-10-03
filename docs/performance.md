@@ -37,6 +37,18 @@ Logins: `owner@perf.test` / `teacher@perf.test`, password `password123`. Slow qu
 security headers) included, with gzip. Small responses grow slightly because of the headers; they were below the 1 KB
 compression threshold before as well.
 
+## Writes that touch a whole school
+
+| Operation (1,200-child school) | Before | After |
+|---|---:|---:|
+| Excel import, 1,200 rows | 1,985 ms | 213 ms |
+| New-year rollover, 2,400 enrollments (promote + graduate) | **45,729 ms** | 870 ms |
+
+The rollover ran ~7 queries per child inside one transaction; at 45 s it could time out behind a proxy. Promotions are
+now a few set-based statements per 1,000 children (`applyPromotions` in `src/modules/years/rollover.service.js`), and
+the import inserts all children, then all enrollments, in two statements after one duplicate-GR check. Measure with
+`npm run db:seed:perf`, then time `POST /students-import` and `POST /academic-years/rollover`.
+
 ## Bottlenecks found and what changed
 
 | Problem | Fix |
@@ -48,6 +60,8 @@ compression threshold before as well.
 | Report card and history loaded every attendance row into Node to count it | `count(*) FILTER (…)` in SQL, per enrollment |
 | Missing indexes for attendance by enrollment, recent absences, enrollments by year/status, subjects by year, report entries, health checks | Migration `0002-performance` |
 | Dashboard and class list are read on every screen change by principals and every teacher | Response cache (below) |
+| Monthly register built ~1,300 model objects per class; sheet and register ran their queries one after another | Plain rows, independent queries in parallel (`DB_POOL_MAX`, default 10) |
+| Import and rollover: queries per child | Bulk statements (above) |
 
 The remaining floor (~17 ms at 10 parallel clients, ~550 requests/s) is authentication (token check + one user
 lookup), school/year resolution and JSON/gzip. That is far above what a school needs (a 40-teacher school
@@ -69,6 +83,29 @@ taking attendance at 9 a.m. produces a few requests per second).
 
 Adding a cached route: put `cacheResponse('name')` after `yearScope`, use `{ perUser: true }` if the answer depends on
 who asks, and make sure everything that changes its data is a write request in the same school.
+
+## Web app
+
+Measured on the production build (`vite build` + `vite preview`) with Chrome's CPU slowed down 4× to resemble a cheap
+Android phone, on the 1,200-child data:
+
+| What | Before | After |
+|---|---:|---:|
+| JavaScript before the first screen (gzip) | 313 KB | 244 KB |
+| Offline cache downloaded on first visit | 2.0 MB | 1.4 MB |
+| One tap on P / A / L (50-child class) | 141 ms (p90 263) | 16 ms (p90 33) |
+| One keystroke in the marks grid (50 children, phone) | 188 ms (p90 409) | 17 ms (p90 19) |
+| Changing one child's decision in the new-year wizard (1,200 children) | **5,500 ms** | 138 ms |
+
+- **Languages:** only English is in the main bundle; हिंदी / मराठी / ગુજરાતી are separate chunks loaded when chosen (or for a
+  guardian's WhatsApp message) and precached for offline use. The app renders after the chosen language has loaded, so
+  there is no English flash.
+- **Form libraries** (zod, react-hook-form) load with the screens that have forms, not for the login page.
+- **Fonts:** only Latin, Devanagari and Gujarati subsets (no Cyrillic/Greek/Vietnamese, no duplicate Latin), cached on
+  first use instead of all being precached.
+- **Lists with one control per child** (attendance, marks, rollover) render each child as a memoised row with stable
+  callbacks, so a change re-renders one row instead of the whole class or school.
+- **Student list and activity log** keep the current rows on screen while "show more", a search or the next page loads.
 
 ## Thumbnails
 

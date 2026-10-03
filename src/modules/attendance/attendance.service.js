@@ -31,23 +31,26 @@ async function holidayOn(school, date) {
 }
 
 async function getSheet(req, section, date) {
-  const year = await section.getAcademicYear();
-  const enrollments = await m.Enrollment.findAll({
-    where: activeOn(section.id, date),
-    include: [{ model: m.Student, attributes: ['id', 'name', 'grNumber', 'photoKey', 'gender'] }],
-    order: [
-      ['rollNumber', 'ASC NULLS LAST'],
-      [m.Student, 'name', 'ASC'],
-    ],
-  });
-  const marks = await m.Attendance.findAll({ where: { classSectionId: section.id, date }, attributes: ['studentId', 'status', 'remark'] });
+  const [year, enrollments, marks, session, holiday] = await Promise.all([
+    section.getAcademicYear(),
+    m.Enrollment.findAll({
+      where: activeOn(section.id, date),
+      include: [{ model: m.Student, attributes: ['id', 'name', 'grNumber', 'photoKey', 'gender'] }],
+      order: [
+        ['rollNumber', 'ASC NULLS LAST'],
+        [m.Student, 'name', 'ASC'],
+      ],
+    }),
+    m.Attendance.findAll({ where: { classSectionId: section.id, date }, attributes: ['studentId', 'status', 'remark'], raw: true }),
+    m.AttendanceSession.findOne({ where: { classSectionId: section.id, date } }),
+    holidayOn(req.school, date),
+  ]);
   const byStudent = Object.fromEntries(marks.map((a) => [a.studentId, a]));
-  const session = await m.AttendanceSession.findOne({ where: { classSectionId: section.id, date } });
   const reason = lockReason(req, year, date);
   return {
     section: { id: section.id, name: section.name },
     date,
-    holiday: await holidayOn(req.school, date),
+    holiday,
     session,
     editable: !reason,
     lockReason: reason,
@@ -122,22 +125,26 @@ async function saveSheet(req, section, date, rows, clientMarkedAt) {
 async function register(req, section, month) {
   const days = daysInMonth(month);
   const [from, to] = [days[0], days[days.length - 1]];
-  const enrollments = await m.Enrollment.findAll({
-    where: {
-      classSectionId: section.id,
-      [Op.and]: [{ [Op.or]: [{ enrolledOn: null }, { enrolledOn: { [Op.lte]: to } }] }, { [Op.or]: [{ exitedOn: null }, { exitedOn: { [Op.gte]: from } }] }],
-    },
-    include: [{ model: m.Student, attributes: ['id', 'name', 'grNumber'] }],
-    order: [
-      ['rollNumber', 'ASC NULLS LAST'],
-      [m.Student, 'name', 'ASC'],
-    ],
-  });
-  const marks = await m.Attendance.findAll({
-    where: { classSectionId: section.id, date: { [Op.between]: [from, to] } },
-    attributes: ['studentId', 'date', 'status'],
-  });
-  const holidays = await m.Holiday.findAll({ where: { schoolId: req.school.id, date: { [Op.between]: [from, to] } } });
+  // Independent reads in parallel; marks as plain rows (a class-month is ~1,000 of them).
+  const [enrollments, marks, holidays] = await Promise.all([
+    m.Enrollment.findAll({
+      where: {
+        classSectionId: section.id,
+        [Op.and]: [{ [Op.or]: [{ enrolledOn: null }, { enrolledOn: { [Op.lte]: to } }] }, { [Op.or]: [{ exitedOn: null }, { exitedOn: { [Op.gte]: from } }] }],
+      },
+      include: [{ model: m.Student, attributes: ['id', 'name', 'grNumber'] }],
+      order: [
+        ['rollNumber', 'ASC NULLS LAST'],
+        [m.Student, 'name', 'ASC'],
+      ],
+    }),
+    m.Attendance.findAll({
+      where: { classSectionId: section.id, date: { [Op.between]: [from, to] } },
+      attributes: ['studentId', 'date', 'status'],
+      raw: true,
+    }),
+    m.Holiday.findAll({ where: { schoolId: req.school.id, date: { [Op.between]: [from, to] } }, attributes: ['date', 'name'], raw: true }),
+  ]);
   const holidayMap = Object.fromEntries(holidays.map((h) => [h.date, h.name]));
   const off = (d) => holidayMap[d] !== undefined || req.school.weeklyOffs.includes(weekday(d));
   const cell = {};

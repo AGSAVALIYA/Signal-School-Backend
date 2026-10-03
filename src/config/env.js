@@ -21,6 +21,7 @@ const schema = z.object({
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(20),
   // Requests per IP per minute across the API (raise for load tests only).
   API_RATE_LIMIT: z.coerce.number().int().positive().default(600),
+  DB_POOL_MAX: z.coerce.number().int().min(2).max(100).default(10),
   // Optional: share rate limits and cached responses between API instances (redis://host:6379).
   REDIS_URL: z.string().url().optional().or(z.literal('')),
   // Seconds a cached read (dashboard, class list, …) may live; writes in the school invalidate it at once. 0 disables.

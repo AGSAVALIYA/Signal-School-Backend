@@ -24,6 +24,7 @@ A small NGO server is enough: 1 vCPU, 1–2 GB RAM. Two ways to run it:
 | `LOGIN_RATE_LIMIT` | | `20` | Logins per IP per 15 min. Keep the default in production; raise only for local e2e runs |
 | `API_RATE_LIMIT` | | `600` | Requests per IP per minute across the API; raise only for load tests |
 | `REDIS_URL` | when running more than one API instance | `redis://redis:6379` | Shares rate limits and the response cache. Optional on one server (in-process cache) |
+| `DB_POOL_MAX` | | `10` | Database connections per API instance; keep instances × this below Postgres `max_connections` |
 | `CACHE_TTL` | | `60` | Seconds a cached read may live; writes invalidate at once. `0` turns the cache off |
 | `RUN_MIGRATIONS` | | `true` | Docker image only: run migrations before starting. Set `false` when several API containers start together |
 

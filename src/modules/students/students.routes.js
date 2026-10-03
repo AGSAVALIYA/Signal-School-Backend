@@ -11,7 +11,7 @@ const imp = require('./import.service');
 const audit = require('../../utils/audit');
 const storage = require('../../utils/storage');
 const { findInSchool, assertSectionWrite, assertYearWritable, isStaff } = require('../../utils/scope');
-const { badRequest } = require('../../utils/errors');
+const { badRequest, conflict } = require('../../utils/errors');
 const { page } = require('../../utils/http');
 const { ISO, todayIn } = require('../../utils/dates');
 
@@ -364,21 +364,39 @@ router.post(
     const sectionIds = new Set((await sectionsOf(req)).map((s) => s.id));
     const rows = req.v.body.rows;
     if (rows.some((r) => !sectionIds.has(r.classSectionId))) throw badRequest('VALIDATION', { fields: { classSectionId: 'INVALID' } });
+    // Two bulk inserts for the whole file (was two queries per child).
     const created = await m.sequelize.transaction(async (transaction) => {
-      const auto = await svc.allocateGr(req.school, rows.filter((r) => !r.grNumber).length, transaction);
-      const today = todayIn(req.school.timezone);
-      const out = [];
-      for (const { classSectionId, rollNumber, ...fields } of rows) {
-        if (fields.grNumber) await svc.assertGrFree(req.school.id, fields.grNumber, transaction);
-        else fields.grNumber = auto.shift();
-        const s = await m.Student.create({ ...fields, schoolId: req.school.id, admissionDate: fields.admissionDate || today }, { transaction });
-        await m.Enrollment.create(
-          { schoolId: req.school.id, academicYearId: req.year.id, studentId: s.id, classSectionId, rollNumber, enrolledOn: today },
-          { transaction },
-        );
-        out.push(s.id);
+      const manual = rows.map((r) => r.grNumber).filter(Boolean);
+      const twice = manual.find((gr, i) => manual.indexOf(gr) !== i);
+      if (twice)
+        throw conflict('GR_DUPLICATE', { params: { gr: twice, name: rows.find((r) => r.grNumber === twice).name }, fields: { grNumber: 'DUPLICATE' } });
+      if (manual.length) {
+        const taken = await m.Student.findOne({ where: { schoolId: req.school.id, grNumber: manual }, attributes: ['grNumber', 'name'], transaction });
+        if (taken) throw conflict('GR_DUPLICATE', { params: { gr: taken.grNumber, name: taken.name }, fields: { grNumber: 'DUPLICATE' } });
       }
-      return out;
+      const auto = await svc.allocateGr(req.school, rows.length - manual.length, transaction);
+      const today = todayIn(req.school.timezone);
+      const students = await m.Student.bulkCreate(
+        rows.map(({ classSectionId: _c, rollNumber: _r, ...fields }) => ({
+          ...fields,
+          grNumber: fields.grNumber || auto.shift(),
+          schoolId: req.school.id,
+          admissionDate: fields.admissionDate || today,
+        })),
+        { transaction, returning: ['id'] },
+      );
+      await m.Enrollment.bulkCreate(
+        rows.map(({ classSectionId, rollNumber }, i) => ({
+          schoolId: req.school.id,
+          academicYearId: req.year.id,
+          studentId: students[i].id,
+          classSectionId,
+          rollNumber,
+          enrolledOn: today,
+        })),
+        { transaction, returning: false },
+      );
+      return students.map((st) => st.id);
     });
     await audit(req, 'student.import', { entityType: 'student', summary: `${created.length} students` });
     res.status(201).json({ data: { created: created.length } });

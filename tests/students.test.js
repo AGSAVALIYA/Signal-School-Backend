@@ -108,6 +108,29 @@ test('import preview flags bad rows and import assigns unique GR numbers', async
   expect(new Set(grs).size).toBe(2);
 });
 
+test('import enrolls every child and refuses duplicate GR numbers without saving anything', async () => {
+  const row = (name, extra = {}) => ({ name, classSectionId: A.s2.id, ...extra });
+  const dupInFile = await as(A.admin)
+    .post('/students-import')
+    .send({ rows: [row('P', { grNumber: 'X-1' }), row('Q', { grNumber: 'X-1' })] });
+  expect(dupInFile.status).toBe(409);
+  expect(dupInFile.body.error).toMatchObject({ code: 'GR_DUPLICATE', params: { gr: 'X-1' } });
+  const taken = await as(A.admin)
+    .post('/students-import')
+    .send({ rows: [row('P'), row('Q', { grNumber: 'A-2' })] });
+  expect(taken.body.error).toMatchObject({ code: 'GR_DUPLICATE', params: { gr: 'A-2', name: 'Bala A' } });
+  expect(await m.Student.count()).toBe(5);
+
+  const rows = Array.from({ length: 30 }, (_, i) => row(`Kid ${i}`, { rollNumber: i + 1, ...(i === 0 ? { grNumber: 'OLD-7' } : {}) }));
+  const res = await as(A.admin).post('/students-import').send({ rows });
+  expect(res.body.data.created).toBe(30);
+  const kids = await m.Student.findAll({ where: { name: rows.map((r) => r.name) }, include: [m.Enrollment] });
+  expect(kids.every((k) => k.Enrollments.length === 1 && k.Enrollments[0].classSectionId === A.s2.id)).toBe(true);
+  expect(kids.find((k) => k.name === 'Kid 0').grNumber).toBe('OLD-7');
+  expect(kids.find((k) => k.name === 'Kid 29').Enrollments[0].rollNumber).toBe(30);
+  expect(new Set(kids.map((k) => k.grNumber)).size).toBe(30);
+});
+
 test('exports an Excel file', async () => {
   const res = await as(A.admin)
     .get('/students-export')
