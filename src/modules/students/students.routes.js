@@ -66,6 +66,9 @@ const enrollmentInclude = (yearId) => ({
   include: [{ model: m.ClassSection, attributes: ['id', 'name'] }],
 });
 
+// The office (clerk) keeps every child's record; teachers only those in their own classes.
+const assertStudentWrite = (req, sectionId) => (req.role === 'clerk' ? undefined : assertSectionWrite(req, sectionId));
+
 async function loadStudent(req, id) {
   const student = await findInSchool(m.Student, id, req, { include: [enrollmentInclude(req.year?.id ?? 0)] });
   return { student, enrollment: student.Enrollments?.[0] || null };
@@ -166,7 +169,7 @@ router.post('/students', requirePerm('students.write'), validate({ body: createB
   const { classSectionId, rollNumber, ...fields } = req.v.body;
   const section = await findInSchool(m.ClassSection, classSectionId, req, { include: [m.AcademicYear] });
   assertYearWritable(section.AcademicYear);
-  await assertSectionWrite(req, section.id);
+  await assertStudentWrite(req, section.id);
   const student = await m.sequelize.transaction(async (transaction) => {
     if (fields.grNumber) await svc.assertGrFree(req.school.id, fields.grNumber, transaction);
     else [fields.grNumber] = await svc.allocateGr(req.school, 1, transaction);
@@ -242,7 +245,7 @@ router.get('/students/:id/attendance', validate({ query: z.object({ month: z.str
 router.patch('/students/:id', requirePerm('students.write'), yearScope(), validate({ body: updateBody }), async (req, res) => {
   const { student, enrollment } = await loadStudent(req, req.params.id);
   const { classSectionId, rollNumber, activityIds, ...fields } = req.v.body;
-  if (enrollment) await assertSectionWrite(req, enrollment.classSectionId);
+  if (enrollment) await assertStudentWrite(req, enrollment.classSectionId);
   else if (!isStaff(req) && req.role !== 'clerk') throw badRequest('VALIDATION');
   const before = student.toJSON();
   await m.sequelize.transaction(async (transaction) => {
@@ -253,7 +256,7 @@ router.patch('/students/:id', requirePerm('students.write'), yearScope(), valida
       if (classSectionId) {
         const target = await findInSchool(m.ClassSection, classSectionId, req);
         if (target.academicYearId !== enrollment.academicYearId) throw badRequest('VALIDATION', { fields: { classSectionId: 'INVALID' } });
-        await assertSectionWrite(req, target.id);
+        await assertStudentWrite(req, target.id);
       }
       await enrollment.update({ ...(classSectionId ? { classSectionId } : {}), ...(rollNumber !== undefined ? { rollNumber } : {}) }, { transaction });
     }
@@ -269,7 +272,7 @@ router.patch('/students/:id', requirePerm('students.write'), yearScope(), valida
 
 router.post('/students/:id/photo', requirePerm('students.write'), yearScope({ required: false }), upload.image(), async (req, res) => {
   const { student, enrollment } = await loadStudent(req, req.params.id);
-  if (enrollment) await assertSectionWrite(req, enrollment.classSectionId);
+  if (enrollment) await assertStudentWrite(req, enrollment.classSectionId);
   const key = await storage.saveImage(req.file.buffer, `students/${req.school.id}`, { thumb: true });
   await storage.remove(student.photoKey);
   await student.update({ photoKey: key });

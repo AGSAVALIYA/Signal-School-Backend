@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const { api, as, reset, close, makeSchool, today, m } = require('./helpers');
+const { api, as, reset, close, makeSchool, makeUser, today, m } = require('./helpers');
 
 let A;
 beforeEach(async () => {
@@ -38,6 +38,19 @@ test('unknown DOB with approximate age is accepted and age is derived', async ()
     .post('/students')
     .send({ name: 'Y', classSectionId: A.s1.id, dobIsApproximate: true, estimatedBirthYear: year - 8 });
   expect(res.body.data.age).toBe(8);
+});
+
+test('the office (clerk) admits and updates children in any class, but cannot take attendance', async () => {
+  const clerk = await makeUser(A.org, A.school, 'clerk', 'Office A');
+  const res = await as(clerk).post('/students').send({ name: 'Naina', classSectionId: A.s2.id });
+  expect(res.status).toBe(201);
+  expect((await as(clerk).patch(`/students/${res.body.data.id}`).send({ guardianPhone: '9876500000' })).status).toBe(200);
+  const png = await require('sharp')({ create: { width: 300, height: 300, channels: 3, background: '#888' } })
+    .png()
+    .toBuffer();
+  const photo = await as(clerk).post(`/students/${res.body.data.id}/photo`).attach('photo', png, { filename: 'p.png', contentType: 'image/png' });
+  expect(photo.status).toBe(200);
+  expect((await as(clerk).put(`/attendance/sections/${A.s2.id}/${today()}`).send({ rows: [] })).status).toBe(403);
 });
 
 test('teacher cannot add to an unassigned section', async () => {
