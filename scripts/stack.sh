@@ -71,7 +71,7 @@ case "$cmd" in
     compose ps --status running --services | grep -qx api || up
     compose exec api node scripts/seed.js --force
     compose exec redis redis-cli FLUSHDB >/dev/null # drop answers cached from the old data
-    echo "Demo logins (password password123): owner@demo.test, clerk@demo.test, sunita@demo.test, rahul@demo.test"
+    echo "Demo logins (password password123): owner@demo.test, principal@demo.test, clerk@demo.test, sunita@demo.test (teacher)"
     ;;
   owner) compose exec api node scripts/create-owner.js "$@" ;;
   thumbnails) compose exec api node scripts/make-thumbnails.js ;;

@@ -34,6 +34,12 @@ services:
     build: .
     image: signal-school-api
     restart: unless-stopped
+    init: true # forwards stop signals and reaps child processes
+    # Hardened: no Linux capabilities, no privilege gain, read-only filesystem except uploads and /tmp.
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
     environment:
       DATABASE_URL: postgres://signal:${POSTGRES_PASSWORD}@db:5432/signal
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (npm run stack creates one)}
@@ -59,8 +65,10 @@ services:
       context: ${FRONTEND_CONTEXT:-.stack/frontend}
     image: signal-school-web
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
     ports:
-      - '${WEB_PORT:-8080}:80'
+      - '${WEB_PORT:-8080}:8080'
     depends_on:
       api: { condition: service_healthy }
 
