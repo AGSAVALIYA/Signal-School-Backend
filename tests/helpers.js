@@ -6,7 +6,9 @@ const { todayIn } = require('../src/utils/dates');
 
 const app = createApp();
 const api = () => request(app);
-const reset = () => m.sequelize.query('TRUNCATE organizations RESTART IDENTITY CASCADE');
+const { forgetAll } = require('../src/middlewares/auth');
+// Ids restart after TRUNCATE, so the per-process request-context cache must not remember the previous rows.
+const reset = () => m.sequelize.query('TRUNCATE organizations RESTART IDENTITY CASCADE').then(forgetAll);
 const close = () => m.sequelize.close();
 const today = () => todayIn('Asia/Kolkata');
 

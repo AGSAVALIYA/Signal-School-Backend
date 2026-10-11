@@ -20,7 +20,7 @@ router.get('/academic-years', async (req, res) => {
   const rows = await sequelize.query(
     `SELECT y.id, y.name, y.start_date AS "startDate", y.end_date AS "endDate", y.status, y.unlocked_until AS "unlockedUntil",
        (SELECT count(*) FROM class_sections s WHERE s.academic_year_id = y.id)::int AS "sectionCount",
-       (SELECT count(*) FROM enrollments e WHERE e.academic_year_id = y.id AND e.status = 'active')::int AS "studentCount"
+       (SELECT count(*) FROM enrollments e WHERE e.academic_year_id = y.id AND e.status NOT IN ('left', 'transferred'))::int AS "studentCount"
      FROM academic_years y WHERE y.school_id = :s ORDER BY y.start_date DESC`,
     { replacements: { s: req.school.id }, type: QueryTypes.SELECT },
   );

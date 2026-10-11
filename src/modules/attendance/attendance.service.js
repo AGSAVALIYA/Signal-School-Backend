@@ -3,6 +3,7 @@ const m = require('../../db/models');
 const { AppError, badRequest } = require('../../utils/errors');
 const { todayIn, addDays, daysInMonth, weekday } = require('../../utils/dates');
 const { isStaff, assertYearWritable } = require('../../utils/scope');
+const { can } = require('../../config/permissions');
 const storage = require('../../utils/storage');
 
 const PRESENT = ['P', 'LATE'];
@@ -46,7 +47,8 @@ async function getSheet(req, section, date) {
     holidayOn(req.school, date),
   ]);
   const byStudent = Object.fromEntries(marks.map((a) => [a.studentId, a]));
-  const reason = lockReason(req, year, date);
+  // The office can look at attendance but not take it.
+  const reason = can(req.role, 'attendance.write') ? lockReason(req, year, date) : 'VIEW_ONLY';
   return {
     section: { id: section.id, name: section.name },
     date,
@@ -189,12 +191,13 @@ async function today(req, yearId) {
     { replacements: { date, y: yearId }, type: QueryTypes.SELECT },
   );
   const absentees = await m.sequelize.query(
-    `SELECT st.id, st.name, st.guardian_name AS "guardianName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage", cs.name AS "sectionName"
+    `SELECT st.id, st.name, st.guardian_name AS "guardianName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage",
+            cs.name AS "sectionName", st.photo_key AS "photoKey"
      FROM attendance a JOIN students st ON st.id = a.student_id JOIN class_sections cs ON cs.id = a.class_section_id
      WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date = :date AND a.status = 'A' ORDER BY cs.name, st.name`,
     { replacements: { s: req.school.id, y: yearId, date }, type: QueryTypes.SELECT },
   );
-  return { date, holiday: await holidayOn(req.school, date), sections, absentees };
+  return { date, holiday: await holidayOn(req.school, date), sections, absentees: await storage.withThumbs(absentees) };
 }
 
 module.exports = { getSheet, saveSheet, register, today, holidayOn, lockReason, PRESENT };

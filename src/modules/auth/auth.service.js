@@ -1,19 +1,19 @@
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const env = require('../../config/env');
 const { User, UserSchool, School, RefreshToken } = require('../../db/models');
 const { AppError } = require('../../utils/errors');
 const storage = require('../../utils/storage');
+const { hashPassword, verifyPassword, needsRehash } = require('../../utils/passwords');
+const JWT_KEY = require('../../config/jwtKey');
 
 const MAX_FAILED = 10;
 const LOCK_MINUTES = 15;
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
-const hashPassword = (plain) => bcrypt.hash(plain, 10);
 // Compared against when the account does not exist, so response time does not reveal which logins are valid.
-const DUMMY_HASH = bcrypt.hashSync('signal-school-timing-guard', 10);
+const DUMMY_HASH = hashPassword('signal-school-timing-guard');
 // A rotated refresh token presented again after this grace period means it was copied: end every session of that user.
 const REUSE_GRACE_MS = 60 * 1000;
 
@@ -24,7 +24,7 @@ function tempPassword(length = 10) {
 }
 
 async function issueTokens(user) {
-  const accessToken = jwt.sign({ sub: user.id, tv: user.tokenVersion }, env.JWT_SECRET, { expiresIn: env.ACCESS_TOKEN_TTL, algorithm: 'HS256' });
+  const accessToken = jwt.sign({ sub: user.id, tv: user.tokenVersion }, JWT_KEY, { expiresIn: env.ACCESS_TOKEN_TTL, algorithm: 'HS256' });
   const refreshToken = crypto.randomBytes(48).toString('base64url');
   await RefreshToken.create({
     userId: user.id,
@@ -36,7 +36,7 @@ async function issueTokens(user) {
 
 async function meDto(userId) {
   const user = await User.findByPk(userId, {
-    include: [{ model: UserSchool, as: 'memberships', include: [{ model: School, attributes: ['id', 'name', 'defaultLanguage', 'status'] }] }],
+    include: [{ model: UserSchool, as: 'memberships', include: [{ model: School, attributes: ['id', 'name', 'defaultLanguage', 'theme', 'status'] }] }],
   });
   return {
     id: user.id,
@@ -49,7 +49,14 @@ async function meDto(userId) {
     thumbUrl: await storage.thumbUrlFor(user.photoKey),
     schools: user.memberships
       .filter((m) => m.School.status === 'active')
-      .map((m) => ({ id: m.School.id, name: m.School.name, role: m.role, isDefault: m.isDefault, defaultLanguage: m.School.defaultLanguage })),
+      .map((m) => ({
+        id: m.School.id,
+        name: m.School.name,
+        role: m.role,
+        isDefault: m.isDefault,
+        defaultLanguage: m.School.defaultLanguage,
+        theme: m.School.theme,
+      })),
   };
 }
 
@@ -60,11 +67,11 @@ async function login(identifier, password) {
     where: { [Op.or]: [{ email: id.toLowerCase() }, ...(phone.length >= 6 ? [{ phone }] : [])] },
   });
   if (!user) {
-    await bcrypt.compare(password, DUMMY_HASH);
+    await verifyPassword(password, await DUMMY_HASH);
     throw new AppError(401, 'INVALID_CREDENTIALS');
   }
   if (user.lockedUntil && user.lockedUntil > new Date()) throw new AppError(429, 'ACCOUNT_LOCKED');
-  if (!(await bcrypt.compare(password, user.passwordHash))) {
+  if (!(await verifyPassword(password, user.passwordHash))) {
     const failed = user.failedLoginCount + 1;
     await user.update({
       failedLoginCount: failed >= MAX_FAILED ? 0 : failed,
@@ -73,7 +80,12 @@ async function login(identifier, password) {
     throw new AppError(401, 'INVALID_CREDENTIALS');
   }
   if (user.status !== 'active') throw new AppError(403, 'ACCOUNT_INACTIVE');
-  await user.update({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() });
+  await user.update({
+    failedLoginCount: 0,
+    lockedUntil: null,
+    lastLoginAt: new Date(),
+    ...(needsRehash(user.passwordHash) && { passwordHash: await hashPassword(password) }),
+  });
   return { ...(await issueTokens(user)), user: await meDto(user.id) };
 }
 
@@ -97,12 +109,13 @@ const logout = (token) => RefreshToken.update({ revokedAt: new Date() }, { where
 // Invalidates every session of the user (password change, reset, deactivation).
 async function revokeAll(user, transaction) {
   await user.increment('tokenVersion', { transaction });
+  require('../../middlewares/auth').forgetUser(user.id); // increment() runs no model hooks
   await RefreshToken.update({ revokedAt: new Date() }, { where: { userId: user.id, revokedAt: null }, transaction });
 }
 
 async function changePassword(userId, current, next) {
   const user = await User.scope('withSecret').findByPk(userId);
-  if (!(await bcrypt.compare(current, user.passwordHash))) throw new AppError(400, 'WRONG_PASSWORD', { fields: { currentPassword: 'WRONG' } });
+  if (!(await verifyPassword(current, user.passwordHash))) throw new AppError(400, 'WRONG_PASSWORD', { fields: { currentPassword: 'WRONG' } });
   await user.update({ passwordHash: await hashPassword(next), mustChangePassword: false });
   await revokeAll(user);
   await user.reload();

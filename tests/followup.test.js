@@ -56,6 +56,14 @@ describe('absence streaks (#4)', () => {
     expect(list[1].since).toBe(addDays(t, -2));
     expect((await as(B.owner).get('/dashboard')).body.data.consecutiveAbsences).toEqual([]);
   });
+
+  test('children below 75% in the last 30 days are listed, lowest first, with their class', async () => {
+    // From the marks above: Esha 0/5, Chitra 1/4 (25%), Dev 1/4 (25%); Asha and Bala have none (fewer than 5 marks).
+    const { atRisk } = (await as(A.admin).get('/dashboard')).body.data;
+    expect(atRisk[0]).toMatchObject({ name: 'Esha A', sectionName: 'Std 2 A', percent: 0, marked: 5, thumbUrl: null });
+    expect(atRisk.map((x) => x.name)).toEqual(['Esha A']);
+    expect((await as(B.owner).get('/dashboard')).body.data.atRisk).toEqual([]);
+  });
 });
 
 describe('one child, one month (#5)', () => {

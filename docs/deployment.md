@@ -19,11 +19,13 @@ A small NGO server is enough: 1 vCPU, 1–2 GB RAM. Two ways to run it:
 | `CORS_ORIGINS` | yes | `https://app.signalschool.org` | Comma-separated exact origins |
 | `PUBLIC_API_URL` | when web and API are on different origins and local storage is used | `https://api.signalschool.org` | Makes photo links absolute |
 | `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | | Leave `S3_BUCKET` empty to store files on disk |
+| `S3_ENDPOINT` | for Cloudflare R2 or another S3-compatible store | `https://<account id>.r2.cloudflarestorage.com` | With R2: `AWS_REGION=auto` and the keys of an R2 API token with read/write on the bucket. The bucket stays private (photos are shown through signed links) |
 | `UPLOAD_DIR` | | `uploads` | Must be persistent and backed up when used |
 | `LOG_LEVEL` | | `info` | |
 | `LOGIN_RATE_LIMIT` | | `20` | Logins per IP per 15 min. Keep the default in production; raise only for local e2e runs |
 | `API_RATE_LIMIT` | | `600` | Requests per IP per minute across the API; raise only for load tests |
 | `REDIS_URL` | when running more than one API instance | `redis://redis:6379` | Shares rate limits and the response cache. Optional on one server (in-process cache) |
+| `WEB_CONCURRENCY` | no | `2` or `auto` | API processes (needs `REDIS_URL`); `auto` = one per core, at most 4. Each has its own `DB_POOL_MAX` connections |
 | `DB_POOL_MAX` | | `10` | Database connections per API instance; keep instances × this below Postgres `max_connections` |
 | `CACHE_TTL` | | `60` | Seconds a cached read may live; writes invalidate at once. `0` turns the cache off |
 | `RUN_MIGRATIONS` | | `true` | Docker image only: run migrations before starting. Set `false` when several API containers start together |
@@ -132,27 +134,40 @@ Photos uploaded before thumbnails existed (or imported from the old app): `npm r
 |---|---|---|
 | `db` | `postgres:16-alpine` | Data in the `db-data` volume; not published outside Docker |
 | `redis` | `redis:7-alpine` | Cache and rate-limit counters only: no persistence, 128 MB, oldest keys evicted |
-| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume |
-| `web` | built from the web app's `Dockerfile` | nginx: the app, `/api` and `/files` proxied to `api`, gzip, security headers. Published on `WEB_PORT` (8080) |
+| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume. Read-only filesystem, no Linux capabilities, `no-new-privileges`, `init` |
+| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (8080) |
 
 ```bash
 npm run stack                    # first run: creates .env.stack with random secrets, clones the web app into
                                  # .stack/frontend, builds both images, starts all four and waits until healthy
 npm run stack -- owner --org "Samarth Bharat Vyaspeeth" --school "Signal Shala, Thane" --name "Principal" --phone 98XXXXXXXX
-npm run stack -- demo            # or: demo data instead (WIPES the stack's database)
+npm run stack -- demo            # or: the demo school instead (WIPES the stack's database; ~40 s)
+npm run stack -- qa              # or: the demo plus the fixed data of the web app's manual-qa/ pack (WIPES it too)
 npm run stack -- ps | logs | down
 npm run stack                    # later: pulls the latest web app, rebuilds, restarts what changed
 ```
 
 Options (environment variables or lines in `.env.stack`): `FRONTEND_REF` (branch/tag of the web app, default `main`),
-`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET` and AWS keys,
-`LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
+`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET`, `S3_ENDPOINT`,
+`AWS_REGION` and keys, `LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
 and `POSTGRES_PASSWORD` is fixed once the database volume exists.
+
+**A managed database or Redis.** By default the stack runs its own Postgres and Redis. To use outside ones, add
+`EXTERNAL_DATABASE_URL` (and `EXTERNAL_DATABASE_SSL=true` if it needs TLS) and/or `EXTERNAL_REDIS_URL` to
+`.env.stack` (`POSTGRES_PASSWORD` must still have some value), then start without the local services:
+`docker compose --env-file .env.stack up -d --build --no-deps api web` (add `redis` to that list to keep the local
+Redis). The database user needs to own its database, as migrations create tables.
 
 **HTTPS.** The `web` container speaks plain HTTP. Put Caddy or a host nginx with a certificate in front of port 8080,
 set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable
 `set_real_ip_from` for that proxy (so rate limits see each phone's IP, not the proxy's) and the
 `Strict-Transport-Security` header. Example `Caddyfile`: `app.signalschool.org { reverse_proxy localhost:8080 }`.
+
+**Images.** The API image is ~210 MB on disk (70 MB to download): Alpine with security updates, Node without npm,
+yarn or corepack, production dependencies pruned of other platforms' binaries, type declarations, source maps and
+docs. Code is owned by root, so the app cannot change itself. Both images keep dependencies in their own layer (only
+`package-lock.json` changes rebuild it) and BuildKit keeps npm's download cache between builds, so a code change
+rebuilds in seconds. `--build-arg UPGRADE_SYSTEM=false` skips the Alpine upgrade for offline builds.
 
 **Images on their own.** `docker build -t signal-school-api .` here and `docker build -t signal-school-web .` in the web
 app. The web image takes `API_UPSTREAM` (default `http://api:3000`) at run time and `VITE_API_URL` as a build argument.

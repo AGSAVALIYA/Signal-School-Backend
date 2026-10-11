@@ -1,12 +1,10 @@
-node_modules
-uploads
-coverage
-tests
-docs
-.stack
-.git
-.github
-.env
-.env.*
-!.env.example
-*.log
+# Only package files, src, scripts and docker/ go into the image build.
+*
+!package.json
+!package-lock.json
+!src
+!scripts
+!docker
+scripts/bench.js
+scripts/perf-seed.js
+scripts/stack.sh

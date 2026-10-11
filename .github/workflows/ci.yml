@@ -29,6 +29,7 @@ jobs:
   # Builds both images and starts the whole stack (db, redis, api, web) the way `npm run stack` does on a server.
   stack:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Pick the web app branch (same name as this branch if it exists, else main)

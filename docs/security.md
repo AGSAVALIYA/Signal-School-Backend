@@ -10,9 +10,9 @@ least access their job needs.
 |---|---|---|
 | Another school/trust reading data | Admin of trust B guesses student ids of trust A | Every query filtered by `school_id`; other schools' ids return 404; automated **scope-matrix test** hits every route with another trust's token |
 | A teacher acting beyond their class | Teacher edits attendance of a class they don't teach | Role matrix + `assertSectionWrite` on every write; tests |
-| Stolen phone / shared phone | Next user opens the app | 15-min access tokens; logout revokes the refresh token, clears offline queue and cached API data; admins deactivate users (sessions end at once) |
+| Stolen phone / shared phone | Next user opens the app | 15-min access tokens; logout revokes the refresh token, clears offline queue and cached API data; admins deactivate users (sessions end within 5 s) |
 | Stolen refresh token | Copied from a phone backup | Tokens stored only as SHA-256 hashes; rotation on every use; a replayed old token (after a 60 s grace for flaky networks) **revokes all sessions** of that user |
-| Password guessing | Script tries passwords | Login rate limit (20 / 15 min / IP), account lock after 10 failures (15 min), bcrypt hashes, same answer and similar timing for unknown users |
+| Password guessing | Script tries passwords | Login rate limit (20 / 15 min / IP), account lock after 10 failures (15 min), scrypt hashes (32 MiB, Node core; older bcrypt hashes upgraded at login), same answer and similar timing for unknown users |
 | Forged tokens | `alg: none`, other secret | JWT verified with HS256 only; secret ≥ 32 chars enforced in production; example secret refused |
 | Public photo links | Photo URL shared or guessed | S3 bucket private with 2-hour signed URLs; local storage serves files only with HMAC-signed, expiring links; random UUID keys |
 | Malicious uploads | Script disguised as JPEG; decompression bomb | Type allow-list, size limits (8 MB photo, 5 MB sheet), every image decoded and re-encoded by sharp (EXIF/GPS stripped, ≤ 40 MP), invalid images → `FILE_TYPE` |

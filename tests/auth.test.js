@@ -66,3 +66,15 @@ test('existing org user is linked to a second school instead of duplicated', asy
   expect(res.body.data.tempPassword).toBeNull();
   expect(await m.UserSchool.count({ where: { userId: A.teacher.user.id } })).toBe(2);
 });
+
+test('passwords are stored with scrypt; an older bcrypt hash still logs in and is upgraded', async () => {
+  const bcrypt = require('bcryptjs');
+  const user = await m.User.scope('withSecret').findByPk(A.teacher2.user.id);
+  expect(user.passwordHash).toMatch(/^scrypt\$15\$8\$1\$/);
+  await user.update({ passwordHash: await bcrypt.hash('old-password-1', 10) });
+  const res = await api().post('/api/v1/auth/login').send({ identifier: user.email, password: 'old-password-1' });
+  expect(res.status).toBe(200);
+  await user.reload();
+  expect(user.passwordHash).toMatch(/^scrypt\$/);
+  expect((await api().post('/api/v1/auth/login').send({ identifier: user.email, password: 'old-password-1' })).status).toBe(200);
+});

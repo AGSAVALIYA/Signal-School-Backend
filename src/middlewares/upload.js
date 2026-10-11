@@ -3,12 +3,17 @@ const { badRequest, AppError } = require('../utils/errors');
 
 const IMAGE = /^image\/(jpeg|png|webp|heic|heif)$/;
 const SHEET = /(spreadsheetml|csv|excel|text\/plain)/;
+// Phones often send files picked from WhatsApp or Drive as a generic type; the name then decides.
+const GENERIC = /^(application\/octet-stream|binary\/octet-stream)?$/;
+const SHEET_NAME = /\.(xlsx|csv)$/i;
+
+const accepts = (accept, file) => accept.test(file.mimetype) || (accept === SHEET && GENERIC.test(file.mimetype) && SHEET_NAME.test(file.originalname));
 
 const make = (accept, maxMb) =>
   multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: maxMb * 1024 * 1024, files: 1 },
-    fileFilter: (_req, file, cb) => (accept.test(file.mimetype) ? cb(null, true) : cb(badRequest('FILE_TYPE'))),
+    fileFilter: (_req, file, cb) => (accepts(accept, file) ? cb(null, true) : cb(badRequest('FILE_TYPE'))),
   });
 
 // Wraps multer so its errors become our AppError format.

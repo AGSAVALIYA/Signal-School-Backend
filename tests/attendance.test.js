@@ -1,4 +1,4 @@
-const { as, reset, close, makeSchool, today, m } = require('./helpers');
+const { as, reset, close, makeSchool, makeUser, today, m } = require('./helpers');
 const { todayIn, addDays } = require('../src/utils/dates');
 
 let A;
@@ -32,6 +32,15 @@ test('future dates are refused', async () => {
     .put(url(addDays(today(), 1)))
     .send({ rows });
   expect(res.body.error.code).toBe('DATE_IN_FUTURE');
+});
+
+test('the office sees the sheet as view-only and cannot save it', async () => {
+  const clerk = await makeUser(A.org, A.school, 'clerk', 'Office A');
+  const sheet = (await as(clerk).get(url())).body.data;
+  expect(sheet).toMatchObject({ editable: false, lockReason: 'VIEW_ONLY' });
+  expect(sheet.rows.length).toBeGreaterThan(0);
+  expect((await as(clerk).put(url()).send({ rows })).status).toBe(403);
+  expect((await as(A.teacher).get(url())).body.data).toMatchObject({ editable: true, lockReason: null });
 });
 
 test('teacher edit window is enforced, admin may still correct', async () => {

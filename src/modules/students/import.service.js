@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const { Readable } = require('stream');
+const { badRequest } = require('../../utils/errors');
 
 // Column keys accepted in uploaded sheets (header row, case/space-insensitive).
 const COLUMNS = [
@@ -53,9 +54,13 @@ function validDay(y, mo, d) {
 async function readSheet(file) {
   const wb = new ExcelJS.Workbook();
   const isCsv = /csv|text\/plain/.test(file.mimetype) || /\.csv$/i.test(file.originalname);
-  const ws = isCsv
-    ? await wb.csv.read(Readable.from(file.buffer.toString('utf8').replace(/^\uFEFF/, '')))
-    : (await wb.xlsx.load(file.buffer), wb.worksheets[0]);
+  let ws;
+  try {
+    ws = isCsv ? await wb.csv.read(Readable.from(file.buffer.toString('utf8').replace(/^\uFEFF/, ''))) : (await wb.xlsx.load(file.buffer), wb.worksheets[0]);
+  } catch {
+    throw badRequest('FILE_TYPE'); // not really a spreadsheet (renamed file, damaged download)
+  }
+  if (!ws) throw badRequest('FILE_TYPE');
   const rows = [];
   let headers = null;
   ws.eachRow({ includeEmpty: false }, (row) => {

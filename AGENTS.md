@@ -19,11 +19,16 @@ npm test                              # Jest; needs Postgres at TEST_DATABASE_UR
 npm run lint && npm run format:check  # ESLint 10 flat config + Prettier
 npm audit --audit-level=moderate      # must stay at 0
 npm run stack                         # whole app in Docker (db, redis, api, web on :8080); `-- demo` loads demo data
-npm run db:seed:perf && node scripts/bench.js   # 1,200-child load test (see docs/performance.md)
+npm run db:seed:perf && node scripts/bench.js   # 1,200-child benchmark per endpoint (see docs/performance.md)
+node scripts/loadtest.js                        # school-morning load test with rising users (see docs/performance.md)
 npm run thumbnails                    # create missing list thumbnails for existing photos
 ```
 Postgres for tests: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=signal_test postgres:16`.
-Demo logins after seeding (password `password123`): `owner@demo.test`, `clerk@demo.test`, `sunita@demo.test`, `rahul@demo.test`.
+Demo logins after seeding (password `password123`): `owner@demo.test`, `principal@demo.test`, `clerk@demo.test`,
+`sunita@demo.test` (class teacher Std 1 A), `rahul@demo.test`, `imran@demo.test` (second school). The seed
+(`scripts/seed.js` + `scripts/demo/`) is deterministic and is what the web app's e2e tests and screenshots run on.
+`--qa` (`npm run db:seed:qa`) adds the fixed children and logins of `scripts/demo/qa.js`, which the web app's
+`manual-qa/` Excel and guide name: change them together.
 
 ## Map
 | Path | What |
@@ -52,11 +57,14 @@ Demo logins after seeding (password `password123`): `owner@demo.test`, `clerk@de
 8. **Audit** meaningful changes: `await audit(req, 'area.verb', { entityType, entityId, summary })` (never throws).
 9. Files: `storage.saveImage()` (re-encodes, strips EXIF); return URLs with `storage.urlFor(key)` — never public paths.
    Photos shown as avatars are saved with `{ thumb: true }`; lists return `thumbUrl` (`storage.thumbUrlFor`), not `photoUrl`.
-10. Until v1 is deployed for real, schema changes may edit `0001-init.up.sql`; after that, **add a new migration pair**.
+10. Schema changes **add a new migration pair** (`0004-attendance-cover` is the latest).
 11. **Cached reads** (`cacheResponse(name)` after `yearScope`) are invalidated by any successful write request in the same
     school. A cached route whose data can change in another way (another school, a background job, a non-HTTP write)
     must not be cached, or needs `{ perUser: true }` when the answer depends on who asks.
 12. Lists that can grow (students, attendance) are plain SQL returning lean rows; don't load model trees per row.
+    Rows that show a child's face add `st.photo_key AS "photoKey"` and go through `storage.withThumbs(rows)`.
+13. A school's `theme` must be one of `src/modules/schools/themes.js`; the web app's `src/theme/looks.js` holds the looks
+    themselves and must list the same ids (a new look needs both, no migration).
 
 ## Adding an endpoint (checklist)
 - [ ] Route in the module's `*.routes.js` (static paths like `/students/possible-duplicates` **before** `/students/:id`).
