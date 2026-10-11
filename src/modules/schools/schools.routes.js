@@ -9,6 +9,7 @@ const storage = require('../../utils/storage');
 const audit = require('../../utils/audit');
 const { notFound } = require('../../utils/errors');
 const { todayIn } = require('../../utils/dates');
+const THEMES = require('./themes');
 
 const text = z.string().trim().max(300);
 const schoolFields = z.object({
@@ -21,6 +22,7 @@ const schoolFields = z.object({
   grPrefix: z.string().max(20).optional(),
   attendanceEditDays: z.number().int().min(0).max(60).optional(),
   weeklyOffs: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  theme: z.enum(THEMES).optional(),
 });
 
 const schoolDto = async (s) => ({ ...s.toJSON(), logoUrl: await storage.urlFor(s.logoKey) });
@@ -81,7 +83,8 @@ router.post('/schools', requirePerm('org.manage'), validate({ body: schoolFields
   res.status(201).json({ data: await schoolDto(school) });
 });
 
-router.get('/school', async (req, res) => res.json({ data: await schoolDto(req.school) }));
+// Fresh from the database: the next register number changes with every admission.
+router.get('/school', async (req, res) => res.json({ data: await schoolDto(await req.school.reload()) }));
 
 router.patch(
   '/school',

@@ -26,6 +26,7 @@ module.exports = (sequelize, DT) => {
       nextGrNumber: { type: DT.INTEGER, defaultValue: 1 },
       attendanceEditDays: { type: DT.INTEGER, defaultValue: 7 },
       weeklyOffs: { type: DT.ARRAY(DT.INTEGER), defaultValue: [0] },
+      theme: { type: DT.TEXT, defaultValue: 'signal' },
       status: { type: DT.TEXT, defaultValue: 'active' },
     },
     { tableName: 'schools' },
