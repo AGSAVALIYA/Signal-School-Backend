@@ -108,6 +108,24 @@ test('import preview flags bad rows and import assigns unique GR numbers', async
   expect(new Set(grs).size).toBe(2);
 });
 
+test('import accepts a sheet sent as a generic file type, and refuses files that are not sheets', async () => {
+  const wb = new ExcelJS.Workbook();
+  wb.addWorksheet('S').addRow(['name*', 'class*']);
+  wb.getWorksheet('S').addRow(['Row One', 'Std 1 A']);
+  const buf = Buffer.from(await wb.xlsx.writeBuffer());
+  const generic = await as(A.admin)
+    .post('/students-import/preview')
+    .attach('file', buf, { filename: 'from-whatsapp.xlsx', contentType: 'application/octet-stream' });
+  expect(generic.body.data).toMatchObject({ total: 1, valid: 1 });
+  const pdf = await as(A.admin).post('/students-import/preview').attach('file', Buffer.from('%PDF-1.4'), { filename: 'a.pdf', contentType: 'application/pdf' });
+  expect(pdf.body.error.code).toBe('FILE_TYPE');
+  const renamed = await as(A.admin)
+    .post('/students-import/preview')
+    .attach('file', Buffer.from('not a zip'), { filename: 'a.xlsx', contentType: 'application/octet-stream' });
+  expect(renamed.status).toBe(400);
+  expect(renamed.body.error.code).toBe('FILE_TYPE');
+});
+
 test('import enrolls every child and refuses duplicate GR numbers without saving anything', async () => {
   const row = (name, extra = {}) => ({ name, classSectionId: A.s2.id, ...extra });
   const dupInFile = await as(A.admin)
