@@ -23,6 +23,14 @@ RUN if [ "$UPGRADE_SYSTEM" = true ]; then apk upgrade --no-cache; fi \
       /usr/local/bin/yarnpkg /opt/yarn-* /usr/local/include /usr/local/share/doc /usr/local/share/man /root/.npm /tmp/* \
  && mkdir -p /data/uploads && chown node:node /data/uploads
 
+# The code, readable by "node" whatever the checkout's umask was (COPY keeps file modes).
+FROM ${NODE_IMAGE} AS code
+WORKDIR /app
+COPY package.json ./
+COPY src ./src
+COPY scripts ./scripts
+RUN chmod -R a+rX,go-w /app
+
 FROM scratch
 COPY --from=system / /
 LABEL org.opencontainers.image.title="Signal School API" \
@@ -31,9 +39,7 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     NODE_ENV=production PORT=3000 UPLOAD_DIR=/data/uploads
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY src ./src
-COPY scripts ./scripts
+COPY --from=code /app ./
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s CMD wget -qO /dev/null http://127.0.0.1:3000/health || exit 1

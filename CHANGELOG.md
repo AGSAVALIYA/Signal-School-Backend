@@ -58,6 +58,9 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 - `npm run dev` uses `node --watch` instead of nodemon (unpatched advisory in its `braces` dependency).
 
 ### Fixed
+- `npm run stack` on a fresh machine: the private permissions used for `.env.stack` also applied to the web app it
+  cloned, so nginx could not read its files and the web container kept restarting. Both images now make their code
+  readable whatever the checkout's permissions; `stack -- logs` follows only in a terminal; CI stack job has a timeout.
 - Student import refused .xlsx/.csv files that phones send as a generic file type (picked from WhatsApp or Drive),
   and a damaged or renamed file gave a server error instead of "This file type is not allowed".
 - Closed academic years showed "0 students" in Academic years and Classes: children who moved up, stayed back or

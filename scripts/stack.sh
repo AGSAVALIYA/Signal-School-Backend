@@ -15,7 +15,8 @@ cd "$(dirname "$0")/.."
 ENV_FILE=.env.stack
 if [ ! -f "$ENV_FILE" ]; then
   secret() { head -c 48 /dev/urandom | base64 | tr -d '\n/+='; }
-  umask 077
+  # Private file, without changing the umask for the rest of the script (the web app clone must stay readable).
+  touch "$ENV_FILE" && chmod 600 "$ENV_FILE"
   cat > "$ENV_FILE" <<EOF
 # Created by scripts/stack.sh. Keep it private; changing JWT_SECRET logs everyone out.
 POSTGRES_PASSWORD=$(secret)
@@ -77,7 +78,7 @@ case "$cmd" in
     ;;
   owner) compose exec api node scripts/create-owner.js "$@" ;;
   thumbnails) compose exec api node scripts/make-thumbnails.js ;;
-  logs) compose logs -f "$@" ;;
+  logs) if [ -t 1 ]; then compose logs -f "$@"; else compose logs "$@"; fi ;; # follow only in a terminal
   ps) compose ps ;;
   down) compose down "$@" ;;
   *)
