@@ -24,7 +24,7 @@ so browser and API share one origin.
 | Runtime | Node.js 22 LTS | Long support window, built-in `fetch`, fast startup on small servers |
 | API | Express 5 | Async errors handled natively; tiny, well known |
 | Validation | zod 4 | One schema = parsing + error codes per field |
-| Database | PostgreSQL 16 + Sequelize 6, plain SQL migrations (umzug) | Relational data with strong constraints; migrations are reviewable SQL, never `sync()` |
+| Database | PostgreSQL 16 + Sequelize 6, plain SQL migrations (`src/db/migrator.js`, ~50 lines) | Relational data with strong constraints; migrations are reviewable SQL, never `sync()` |
 | Auth | Short-lived JWT access token (15 min, HS256 pinned) + opaque refresh token (30 days, stored hashed, rotated, reuse detection) | Works offline-ish on phones without long-lived bearer tokens |
 | Files | Private S3 with signed URLs, or local disk with HMAC-signed expiring links; thumbnails made at upload | Children's photos are never public; lists stay light on mobile data |
 | Cache | Per-school versioned response cache, in-process or Redis (`REDIS_URL`) | Dashboard and class lists are read constantly; writes invalidate at once ([performance](performance.md)) |

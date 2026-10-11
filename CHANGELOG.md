@@ -32,6 +32,12 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 - Gzip compression; `API_RATE_LIMIT`; load-test tooling (`npm run db:seed:perf`, `scripts/bench.js`) and
   [docs/performance.md](docs/performance.md).
 
+### Security
+- `proxy-addr` 2.0.8 (critical: IP spoofing through IPv4-mapped IPv6 trust subnets, via Express).
+- Migrations run by a small built-in runner instead of umzug, removing its command-line dependency tree (`argparse`
+  1 → `sprintf-js`, a moderate advisory with no fixed version); the `schema_migrations` table is unchanged. The same
+  advisory in the test tooling is closed with an override to `js-yaml` 4. `npm audit`: 0 vulnerabilities.
+
 ### Changed
 - Load test fixes (`docs/performance.md`): 216 → 333 requests/s in one process, ~430 with two; 40 simultaneous logins
   4.2 → 1.4 s. Passwords use scrypt on the thread pool (bcrypt hashes upgraded at login); user, school and year
