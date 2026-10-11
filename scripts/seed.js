@@ -4,6 +4,7 @@
 // DESTROYS all existing data in the target database. Deterministic: the same date gives the same data.
 //
 // Usage: npm run db:seed            (refuses NODE_ENV=production unless --force)
+//        npm run db:seed -- --school-day   today is a school day even on a Sunday (no weekly holiday; for screenshots)
 // Logins (password "password123"): owner@demo.test, principal@demo.test, clerk@demo.test, sunita@demo.test (class
 // teacher Std 1 A), rahul@demo.test (Maths and English, Std 5–7), imran@demo.test (Nerul).
 const { QueryTypes } = require('sequelize');
@@ -29,6 +30,7 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const q = (sql, replacements, type = QueryTypes.SELECT) => m.sequelize.query(sql, { replacements, type });
 
 const TZ = 'Asia/Kolkata';
+const SCHOOL_DAY = process.argv.includes('--school-day');
 const today = todayIn(TZ);
 const yesterday = addDays(today, -1);
 const startYear = Number(today.slice(0, 4)) - (Number(today.slice(5, 7)) < 6 ? 1 : 0);
@@ -362,7 +364,7 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
 
   // Today: most classes have already taken attendance; two are still waiting (one is Std 1 A, for trying it out).
   const isSchoolDay =
-    new Date(`${today}T00:00:00Z`).getUTCDay() !== 0 &&
+    (SCHOOL_DAY || new Date(`${today}T00:00:00Z`).getUTCDay() !== 0) &&
     today >= current.startDate &&
     !(await m.Holiday.findOne({ where: { schoolId: school.id, date: today } }));
   if (isSchoolDay) {
@@ -531,6 +533,7 @@ async function seed() {
     grPrefix: 'SS-',
     defaultLanguage: 'mr',
     theme: 'signal',
+    ...(SCHOOL_DAY && { weeklyOffs: [] }),
   });
   const nerul = await m.School.create({
     organizationId: org.id,
@@ -540,6 +543,7 @@ async function seed() {
     grPrefix: 'SN-',
     defaultLanguage: 'mr',
     theme: 'marigold',
+    ...(SCHOOL_DAY && { weeklyOffs: [] }),
   });
   const users = await makeUsers(org, pw, { thane, nerul });
 

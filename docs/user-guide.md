@@ -10,6 +10,8 @@ your language on the login screen or under **Me**. Everything below works the sa
 2. Open the app link, tap your language, type the number and password, tap **Log in**.
 3. Choose your own password (at least 8 letters/numbers) and type it twice. Done — next time you stay logged in.
 4. Tip: in Chrome tap **⋮ → Add to Home screen** to open the app like any other app, even without internet.
+5. At the bottom of the screen are **Today**, **Attendance**, **Students**, **Syllabus** and **More** (marks, your
+   profile and the rest). On a computer the same list is on the left.
 
 ### Take attendance (every morning)
 1. **Today** shows your classes. Tap **Take attendance** on your class.
@@ -93,6 +95,11 @@ two-week attendance trend, syllabus progress, children who need a doctor, and bi
 teachers → move students (promote, keep in same class, left, completed school) → check and create. You can create it
 early and make it current on the first day. Old years stay readable from the year switcher at the top; they cannot be
 changed unless you **Unlock** them for a short time with a reason.
+
+### The look of the app
+**School settings → Look**. Tap a look to see it on your own screen first (nobody else sees it yet), then press
+**Use for the whole school**. Every teacher's phone shows it the next time they open the app. *Easy to read* has black
+letters on white, thick lines and bigger letters, for teachers with weak eyes or for use in bright sunlight.
 
 ### Who changed what?
 **Activity log** → choose a person and/or a kind of change (attendance, students, staff …). Use **Older** to go back in

@@ -16,7 +16,13 @@ Node.js 22 · Express 5 · PostgreSQL 16 (Sequelize, SQL migrations) · zod · J
 |---|---|---|
 | <img src="docs/screenshots/desktop-dashboard.png" width="320" alt="Dashboard with children absent several days in a row"> | <img src="docs/screenshots/desktop-student-profile.png" width="320" alt="Student profile with tabs"> | <img src="docs/screenshots/desktop-new-year-wizard.png" width="320" alt="Five-step new academic year wizard"> |
 
-Screenshots use demo data (`npm run db:seed`) and are regenerated with `npm run screenshots` in the web repo.
+The principal picks the school's **look** (School settings → Look): Signal Shala (default), Blackboard, Notebook,
+Marigold, Calm teal or Easy to read; every look has its own colours, fonts, shapes and icons.
+
+<img src="docs/screenshots/looks.png" alt="Teacher home screen in the six looks">
+
+Screenshots use demo data (`npm run db:seed -- --school-day`) and are regenerated with `npm run screenshots` in the
+web repo.
 
 ## Run with Docker (whole app, one command)
 
