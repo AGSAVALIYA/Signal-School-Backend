@@ -134,8 +134,8 @@ Photos uploaded before thumbnails existed (or imported from the old app): `npm r
 |---|---|---|
 | `db` | `postgres:16-alpine` | Data in the `db-data` volume; not published outside Docker |
 | `redis` | `redis:7-alpine` | Cache and rate-limit counters only: no persistence, 128 MB, oldest keys evicted |
-| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume. Read-only filesystem, no Linux capabilities, `no-new-privileges`, `init` |
-| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (18080), on `WEB_BIND` (all interfaces; `127.0.0.1` for this machine only) |
+| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume. Read-only filesystem, no Linux capabilities, `no-new-privileges`, `init`. Also on `127.0.0.1:18081` (`API_BIND`, `API_PORT`) for direct use |
+| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (18080), on `WEB_BIND` (all interfaces; `127.0.0.1` for this machine only); `REAL_IP_HEADER`/`REAL_IP_FROM` for the visitor's IP behind a proxy |
 
 ```bash
 npm run stack                    # first run: creates .env.stack with random secrets, clones the web app into
@@ -157,6 +157,25 @@ and `POSTGRES_PASSWORD` is fixed once the database volume exists.
 `.env.stack` (`POSTGRES_PASSWORD` must still have some value), then start without the local services:
 `docker compose --env-file .env.stack up -d --build --no-deps api web` (add `redis` to that list to keep the local
 Redis). The database user needs to own its database, as migrations create tables.
+
+**Cloudflare Tunnel.** No port needs to be open to the internet. In `.env.stack`:
+
+```
+WEB_BIND=127.0.0.1
+WEB_ORIGIN=https://app.example.org
+REAL_IP_HEADER=CF-Connecting-IP
+REAL_IP_FROM=0.0.0.0/0
+```
+
+The `REAL_IP_*` lines give rate limits each visitor's own IP instead of the tunnel's. Only use them while
+`WEB_BIND=127.0.0.1`, because they trust that header from any sender. Then add the tunnel's public hostnames:
+
+| Hostname | Service |
+|---|---|
+| `app.example.org` | `http://127.0.0.1:18080` (the app, and the API under `/api`) |
+| `api.example.org` (optional) | `http://127.0.0.1:18081` (the API alone, e.g. `/health`) |
+
+The web app needs only the first one. It calls the API on its own domain, so there are no CORS checks and no extra connection.
 
 **HTTPS.** The `web` container speaks plain HTTP. Put Caddy, a host nginx or a Cloudflare Tunnel in front of port 18080,
 set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable

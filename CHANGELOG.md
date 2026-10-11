@@ -8,7 +8,10 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 ### Changed
 - Docker Compose publishes the web app on port **18080** (was 8080; the container still listens on 8080) and takes
   `WEB_BIND` (e.g. `127.0.0.1` behind a tunnel or reverse proxy on the same host). Existing `.env.stack` files keep
-  their own `WEB_PORT`.
+  their own `WEB_PORT`. The API alone is also published on `127.0.0.1:18081` (`API_BIND`, `API_PORT`), for a
+  separate tunnel hostname; `REAL_IP_HEADER`/`REAL_IP_FROM` give the web container the visitor's IP behind
+  Cloudflare Tunnel, so login and request limits count each visitor, not the tunnel. Cloudflare Tunnel set-up in
+  `docs/deployment.md`.
 
 ### Added
 - `npm run db:seed:qa` / `npm run stack -- qa`: the demo plus fixed children and logins (`scripts/demo/qa.js`) that the

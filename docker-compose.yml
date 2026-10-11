@@ -1,7 +1,7 @@
 # Whole Signal School on one machine: PostgreSQL, Redis, API and web app.
 # Easiest start: `npm run stack` (clones the web app, creates secrets in .env.stack, builds and starts everything).
-# Then open http://localhost:18080 (WEB_PORT). Only the web container is published on the host; Postgres, Redis and
-# the API stay on the stack's private network, so their ports never clash with anything else on the server.
+# Then open http://localhost:18080 (WEB_PORT). Only the web app (and the API on 127.0.0.1:18081) are published on the host;
+# Postgres and Redis stay on the stack's private network, so their ports never clash with anything else on the server.
 name: signal-school
 
 services:
@@ -41,6 +41,10 @@ services:
     tmpfs: [/tmp]
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
+    # The API on its own, for this machine only by default (e.g. a tunnel hostname for the API). The web app does not
+    # need it: it reaches the API through its own /api.
+    ports:
+      - '${API_BIND:-127.0.0.1}:${API_PORT:-18081}:3000'
     environment:
       # Uses the "db" and "redis" services below unless EXTERNAL_DATABASE_URL / EXTERNAL_REDIS_URL
       # point elsewhere (a managed database; then start only "api web" with --no-deps).
@@ -77,6 +81,11 @@ services:
     # WEB_BIND=127.0.0.1 keeps it off the public interface (behind a tunnel or a reverse proxy on the same host).
     ports:
       - '${WEB_BIND:+${WEB_BIND}:}${WEB_PORT:-18080}:8080'
+    # Visitor IPs for rate limits behind a tunnel/proxy, e.g. Cloudflare Tunnel: REAL_IP_HEADER=CF-Connecting-IP and
+    # REAL_IP_FROM=0.0.0.0/0 (only with WEB_BIND=127.0.0.1). Unset: the connecting address.
+    environment:
+      REAL_IP_FROM: ${REAL_IP_FROM:-127.0.0.1}
+      REAL_IP_HEADER: ${REAL_IP_HEADER:-X-Forwarded-For}
     depends_on:
       api: { condition: service_healthy }
 

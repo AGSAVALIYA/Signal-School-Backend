@@ -9,7 +9,9 @@
 #
 # Settings (environment or .env.stack): FRONTEND_REPO, FRONTEND_REF (default main), FRONTEND_DIR (use your own
 # checkout instead of cloning), WEB_PORT (default 18080), WEB_BIND
-# (127.0.0.1 to listen on this machine only). Secrets are generated once into .env.stack (git-ignored).
+# (127.0.0.1 to listen on this machine only), API_PORT (default 18081, this machine only), REAL_IP_HEADER and
+# REAL_IP_FROM (visitor IPs behind Cloudflare Tunnel, see docs/deployment.md). Secrets are generated once into
+# .env.stack (git-ignored).
 set -eu
 cd "$(dirname "$0")/.."
 
