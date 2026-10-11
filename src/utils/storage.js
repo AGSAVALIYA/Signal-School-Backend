@@ -26,7 +26,13 @@ function verifySigned(key, { e, s } = {}) {
   return expected.length === given.length && crypto.timingSafeEqual(expected, given);
 }
 
-const s3 = env.S3_BUCKET ? new S3Client({ region: env.AWS_REGION }) : null;
+// With S3_ENDPOINT (R2, MinIO, …) checksums are sent only when required, as not every S3-compatible store accepts them.
+const s3 = env.S3_BUCKET
+  ? new S3Client({
+      region: env.AWS_REGION,
+      ...(env.S3_ENDPOINT && { endpoint: env.S3_ENDPOINT, requestChecksumCalculation: 'WHEN_REQUIRED', responseChecksumValidation: 'WHEN_REQUIRED' }),
+    })
+  : null;
 const localDir = path.resolve(env.UPLOAD_DIR);
 
 // Photos are re-encoded: strips EXIF/location, fixes orientation, caps size for slow networks.

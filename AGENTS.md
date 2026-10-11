@@ -27,6 +27,8 @@ Postgres for tests: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e
 Demo logins after seeding (password `password123`): `owner@demo.test`, `principal@demo.test`, `clerk@demo.test`,
 `sunita@demo.test` (class teacher Std 1 A), `rahul@demo.test`, `imran@demo.test` (second school). The seed
 (`scripts/seed.js` + `scripts/demo/`) is deterministic and is what the web app's e2e tests and screenshots run on.
+`--qa` (`npm run db:seed:qa`) adds the fixed children and logins of `scripts/demo/qa.js`, which the web app's
+`manual-qa/` Excel and guide name: change them together.
 
 ## Map
 | Path | What |

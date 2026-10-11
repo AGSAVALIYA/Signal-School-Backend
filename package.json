@@ -12,6 +12,7 @@
     "db:migrate": "node scripts/migrate.js up",
     "db:rollback": "node scripts/migrate.js down",
     "db:seed": "node scripts/seed.js",
+    "db:seed:qa": "node scripts/seed.js --qa",
     "create-owner": "node scripts/create-owner.js",
     "migrate-legacy": "node scripts/migrate-legacy.js",
     "test": "jest --runInBand",

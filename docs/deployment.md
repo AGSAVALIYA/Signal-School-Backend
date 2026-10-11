@@ -19,6 +19,7 @@ A small NGO server is enough: 1 vCPU, 1–2 GB RAM. Two ways to run it:
 | `CORS_ORIGINS` | yes | `https://app.signalschool.org` | Comma-separated exact origins |
 | `PUBLIC_API_URL` | when web and API are on different origins and local storage is used | `https://api.signalschool.org` | Makes photo links absolute |
 | `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | | | Leave `S3_BUCKET` empty to store files on disk |
+| `S3_ENDPOINT` | for Cloudflare R2 or another S3-compatible store | `https://<account id>.r2.cloudflarestorage.com` | With R2: `AWS_REGION=auto` and the keys of an R2 API token with read/write on the bucket. The bucket stays private (photos are shown through signed links) |
 | `UPLOAD_DIR` | | `uploads` | Must be persistent and backed up when used |
 | `LOG_LEVEL` | | `info` | |
 | `LOGIN_RATE_LIMIT` | | `20` | Logins per IP per 15 min. Keep the default in production; raise only for local e2e runs |
@@ -141,14 +142,21 @@ npm run stack                    # first run: creates .env.stack with random sec
                                  # .stack/frontend, builds both images, starts all four and waits until healthy
 npm run stack -- owner --org "Samarth Bharat Vyaspeeth" --school "Signal Shala, Thane" --name "Principal" --phone 98XXXXXXXX
 npm run stack -- demo            # or: the demo school instead (WIPES the stack's database; ~40 s)
+npm run stack -- qa              # or: the demo plus the fixed data of the web app's manual-qa/ pack (WIPES it too)
 npm run stack -- ps | logs | down
 npm run stack                    # later: pulls the latest web app, rebuilds, restarts what changed
 ```
 
 Options (environment variables or lines in `.env.stack`): `FRONTEND_REF` (branch/tag of the web app, default `main`),
-`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET` and AWS keys,
-`LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
+`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET`, `S3_ENDPOINT`,
+`AWS_REGION` and keys, `LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
 and `POSTGRES_PASSWORD` is fixed once the database volume exists.
+
+**A managed database or Redis.** By default the stack runs its own Postgres and Redis. To use outside ones, add
+`EXTERNAL_DATABASE_URL` (and `EXTERNAL_DATABASE_SSL=true` if it needs TLS) and/or `EXTERNAL_REDIS_URL` to
+`.env.stack` (`POSTGRES_PASSWORD` must still have some value), then start without the local services:
+`docker compose --env-file .env.stack up -d --build --no-deps api web` (add `redis` to that list to keep the local
+Redis). The database user needs to own its database, as migrations create tables.
 
 **HTTPS.** The `web` container speaks plain HTTP. Put Caddy or a host nginx with a certificate in front of port 8080,
 set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable

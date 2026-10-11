@@ -15,6 +15,8 @@ const schema = z.object({
   PUBLIC_API_URL: z.string().url().optional().or(z.literal('')),
   S3_BUCKET: z.string().optional(),
   AWS_REGION: z.string().default('ap-south-1'),
+  // S3-compatible storage other than AWS, e.g. Cloudflare R2: https://<account id>.r2.cloudflarestorage.com (AWS_REGION=auto).
+  S3_ENDPOINT: z.string().url().optional().or(z.literal('')),
   UPLOAD_DIR: z.string().default('uploads'),
   LOG_LEVEL: z.string().default('info'),
   // Logins per IP per 15 minutes. Raise only for local end-to-end test runs (many logins from one machine).

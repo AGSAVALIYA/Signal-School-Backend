@@ -41,16 +41,20 @@ services:
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
     environment:
-      DATABASE_URL: postgres://signal:${POSTGRES_PASSWORD}@db:5432/signal
+      # Uses the "db" and "redis" services below unless EXTERNAL_DATABASE_URL / EXTERNAL_REDIS_URL
+      # point elsewhere (a managed database; then start only "api web" with --no-deps).
+      DATABASE_URL: ${EXTERNAL_DATABASE_URL:-postgres://signal:${POSTGRES_PASSWORD}@db:5432/signal}
+      DATABASE_SSL: ${EXTERNAL_DATABASE_SSL:-false}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (npm run stack creates one)}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${EXTERNAL_REDIS_URL:-redis://redis:6379}
       # API processes sharing Redis ("auto" = one per CPU core, at most 4).
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Leave S3_BUCKET empty to keep photos in the "uploads" volume.
+      # Leave S3_BUCKET empty to keep photos in the "uploads" volume. Cloudflare R2: also S3_ENDPOINT and AWS_REGION=auto.
       S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

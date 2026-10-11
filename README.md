@@ -41,6 +41,7 @@ cp .env.example .env            # set DATABASE_URL and JWT_SECRET
 npm ci
 npm run db:migrate              # SQL migrations in src/db/migrations
 npm run db:seed                 # demo data, wipes the database (password: password123)
+npm run db:seed:qa              # or: demo data plus the fixed records of the web app's manual-qa/ test pack
 npm run dev                     # http://localhost:3000/health
 ```
 

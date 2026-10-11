@@ -3,6 +3,7 @@
 #
 #   npm run stack                 clone/update the web app, build, start, wait until healthy
 #   npm run stack -- demo         also load demo data (WIPES the stack's database)
+#   npm run stack -- qa           demo data plus the fixed children and logins of the manual QA pack (WIPES it too)
 #   npm run stack -- owner --org "Trust" --school "School" --name "Name" --phone 98XXXXXXXX
 #   npm run stack -- logs | ps | down
 #
@@ -67,10 +68,11 @@ cmd=${1:-up}
 [ $# -gt 0 ] && shift
 case "$cmd" in
   up) up ;;
-  demo)
+  demo | qa)
     compose ps --status running --services | grep -qx api || up
-    compose exec api node scripts/seed.js --force
-    compose exec redis redis-cli FLUSHDB >/dev/null # drop answers cached from the old data
+    if [ "$cmd" = qa ]; then compose exec api node scripts/seed.js --force --qa; else compose exec api node scripts/seed.js --force; fi
+    # Drop answers cached from the old data (with an outside Redis they expire within a minute).
+    compose exec redis redis-cli FLUSHDB >/dev/null 2>&1 || true
     echo "Demo logins (password password123): owner@demo.test, principal@demo.test, clerk@demo.test, sunita@demo.test (teacher)"
     ;;
   owner) compose exec api node scripts/create-owner.js "$@" ;;
@@ -79,7 +81,7 @@ case "$cmd" in
   ps) compose ps ;;
   down) compose down "$@" ;;
   *)
-    echo "Usage: npm run stack -- [up|demo|owner …|thumbnails|logs|ps|down]" >&2
+    echo "Usage: npm run stack -- [up|demo|qa|owner …|thumbnails|logs|ps|down]" >&2
     exit 1
     ;;
 esac

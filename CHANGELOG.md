@@ -6,6 +6,10 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 ## Unreleased
 
 ### Added
+- `npm run db:seed:qa` / `npm run stack -- qa`: the demo plus fixed children and logins (`scripts/demo/qa.js`) that the
+  web app's manual QA pack refers to; today is always a school day.
+- `S3_ENDPOINT` for Cloudflare R2 and other S3-compatible storage. Docker Compose can use an outside database and
+  Redis (`EXTERNAL_DATABASE_URL`, `EXTERNAL_REDIS_URL`).
 - School look (`schools.theme`, migration `0003-school-theme`): set with `PATCH /school { theme }` by the principal,
   returned per school by `/me`; the web app has six looks with Signal Shala as the default.
 - Demo seed rebuilt as a working Signal Shala: two schools, three academic years with promotions, detentions, children

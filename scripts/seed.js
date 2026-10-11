@@ -5,6 +5,8 @@
 //
 // Usage: npm run db:seed            (refuses NODE_ENV=production unless --force)
 //        npm run db:seed -- --school-day   today is a school day even on a Sunday (no weekly holiday; for screenshots)
+//        npm run db:seed:qa         the demo plus the fixed children and logins used by manual-qa/ in the web app
+//                                   repository (implies --school-day)
 // Logins (password "password123"): owner@demo.test, principal@demo.test, clerk@demo.test, sunita@demo.test (class
 // teacher Std 1 A), rahul@demo.test (Maths and English, Std 5–7), imran@demo.test (Nerul).
 const { QueryTypes } = require('sequelize');
@@ -14,6 +16,7 @@ const storage = require('../src/utils/storage');
 const { todayIn, addDays } = require('../src/utils/dates');
 const avatars = require('./demo/avatars');
 const C = require('./demo/content');
+const QA_DATA = require('./demo/qa');
 
 // Deterministic random numbers (no Math.random: reruns give the same school).
 let state = 20240615;
@@ -30,7 +33,8 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const q = (sql, replacements, type = QueryTypes.SELECT) => m.sequelize.query(sql, { replacements, type });
 
 const TZ = 'Asia/Kolkata';
-const SCHOOL_DAY = process.argv.includes('--school-day');
+const QA = process.argv.includes('--qa');
+const SCHOOL_DAY = QA || process.argv.includes('--school-day');
 const today = todayIn(TZ);
 const yesterday = addDays(today, -1);
 const startYear = Number(today.slice(0, 4)) - (Number(today.slice(5, 7)) < 6 ? 1 : 0);
@@ -178,7 +182,7 @@ function simulate({ years, grades, size, lateJoin }) {
   return kids;
 }
 
-async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoin, classTeachers, subjectTeachers, photoSeed }) {
+async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoin, classTeachers, subjectTeachers, photoSeed, extraKids }) {
   // Years: the last one is the current year; earlier ones are closed.
   const years = [];
   for (let i = yearCount - 1; i >= 0; i -= 1) {
@@ -204,7 +208,7 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
   await m.Holiday.bulkCreate(
     years.flatMap((y) =>
       C.holidaysFor(Number(y.startDate.slice(0, 4)))
-        .filter(([d]) => d >= y.startDate && d <= y.endDate)
+        .filter(([d]) => d >= y.startDate && d <= y.endDate && !(SCHOOL_DAY && d === today))
         .map(([date, name, type]) => ({ schoolId: school.id, date, name, type })),
     ),
   );
@@ -264,13 +268,14 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
 
   // Children.
   const kids = simulate({ years, grades, size, lateJoin });
+  if (extraKids) kids.push(...extraKids(years));
   kids.sort((a, b) => (a.admissionDate < b.admissionDate ? -1 : a.admissionDate > b.admissionDate ? 1 : 0));
   const area = school.location === 'Thane' ? C.AREAS : ['Nerul sector 6', 'Shiravane', 'Juinagar', 'LP signal, Nerul'];
   const rows = [];
   for (const [i, k] of kids.entries()) {
     const relation = pick(C.RELATION[k.lang] || C.RELATION.en);
     const surname = k.name.split(' ').slice(1).join(' ');
-    const withPhoto = k.status === 'active' ? chance(0.8) : chance(0.4);
+    const withPhoto = k.qa ? k.qa.photo : k.status === 'active' ? chance(0.8) : chance(0.4);
     rows.push({
       schoolId: school.id,
       grNumber: `${school.grPrefix}${i + 1}`,
@@ -295,6 +300,7 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
       leftToSchool: k.leftToSchool || null,
       consentPhoto: withPhoto,
       photoKey: withPhoto ? await photo('child', photoSeed + i * 131, k.gender, `students/${school.id}`) : null,
+      ...k.qa?.row,
     });
   }
   const students = await m.Student.bulkCreate(rows, { returning: ['id'] });
@@ -352,9 +358,13 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
   // A few children have stopped coming (the dashboard asks the principal to call their families).
   const recent = (await q(`SELECT DISTINCT date FROM attendance WHERE academic_year_id = :y ORDER BY date DESC LIMIT 5`, { y: current.id })).map((r) => r.date);
   const streak = active
-    .filter((k) => k.enrollments.at(-1).enrolledOn < addDays(today, -30))
-    .filter((_, i) => i % 23 === 5)
-    .slice(0, 4);
+    .filter((k) => k.qa?.streak)
+    .concat(
+      active
+        .filter((k) => !k.qa && k.enrollments.at(-1).enrolledOn < addDays(today, -30))
+        .filter((_, i) => i % 23 === 5)
+        .slice(0, 4),
+    );
   if (recent.length && streak.length)
     await q(
       `UPDATE attendance SET status = 'A' WHERE student_id IN (:ids) AND date IN (:dates)`,
@@ -438,10 +448,10 @@ async function buildSchool({ school, users, yearCount, gradeNames, size, lateJoi
       });
     }
   }
-  const followUp = active.filter((_, i) => i % 29 === 7).slice(0, 5);
+  const followUp = active.filter((k) => k.qa?.followUp).concat(active.filter((k, i) => !k.qa && i % 29 === 7).slice(0, 5));
   for (const [i, k] of followUp.entries()) {
     const last = checks.filter((c) => c.studentId === k.id).at(-1);
-    if (last) Object.assign(last, { needsFollowUp: true, notes: C.HEALTH_NOTES[i % C.HEALTH_NOTES.length] });
+    if (last) Object.assign(last, { needsFollowUp: true, notes: k.qa?.followUp || C.HEALTH_NOTES[i % C.HEALTH_NOTES.length] });
   }
   await m.HealthCheck.bulkCreate(checks);
 
@@ -546,6 +556,11 @@ async function seed() {
     ...(SCHOOL_DAY && { weeklyOffs: [] }),
   });
   const users = await makeUsers(org, pw, { thane, nerul });
+  if (QA)
+    for (const { password, ...u } of QA_DATA.USERS) {
+      const user = await m.User.create({ organizationId: org.id, ...u, passwordHash: await hashPassword(password), preferredLanguage: 'en' });
+      await m.UserSchool.create({ userId: user.id, schoolId: thane.id, role: 'teacher', isDefault: true });
+    }
 
   const main = await buildSchool({
     school: thane,
@@ -560,6 +575,7 @@ async function seed() {
       [['Hindi', 'Science'], 5, 7, 'farida'],
     ],
     photoSeed: 11,
+    extraKids: QA && ((years) => QA_DATA.kids(years, today)),
   });
   await activityLog(thane, users, main);
   const small = await buildSchool({
@@ -583,6 +599,7 @@ async function seed() {
       `  ${attendance} attendance marks`,
       'Logins (password "password123"): owner@demo.test, principal@demo.test, clerk@demo.test,',
       '  sunita@demo.test (class teacher, Std 1 A), rahul@demo.test (Maths/English Std 5–7), imran@demo.test (Nerul)',
+      ...(QA ? ['QA: newteacher@demo.test (temporary password Welcome@123), inactive@demo.test; children in manual-qa/'] : []),
     ].join('\n'),
   );
 }
