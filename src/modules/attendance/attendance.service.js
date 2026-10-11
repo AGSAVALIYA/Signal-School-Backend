@@ -3,6 +3,7 @@ const m = require('../../db/models');
 const { AppError, badRequest } = require('../../utils/errors');
 const { todayIn, addDays, daysInMonth, weekday } = require('../../utils/dates');
 const { isStaff, assertYearWritable } = require('../../utils/scope');
+const { can } = require('../../config/permissions');
 const storage = require('../../utils/storage');
 
 const PRESENT = ['P', 'LATE'];
@@ -46,7 +47,8 @@ async function getSheet(req, section, date) {
     holidayOn(req.school, date),
   ]);
   const byStudent = Object.fromEntries(marks.map((a) => [a.studentId, a]));
-  const reason = lockReason(req, year, date);
+  // The office can look at attendance but not take it.
+  const reason = can(req.role, 'attendance.write') ? lockReason(req, year, date) : 'VIEW_ONLY';
   return {
     section: { id: section.id, name: section.name },
     date,

@@ -85,7 +85,7 @@ router.get('/sections', yearScope(), cacheResponse('sections'), async (req, res)
     order: [...SECTION_ORDER, [Subject, 'sortOrder', 'ASC'], [Subject, 'name', 'ASC']],
   });
   const counts = await sequelize.query(
-    `SELECT class_section_id AS id, count(*)::int AS n FROM enrollments WHERE academic_year_id = :y AND status = 'active' GROUP BY 1`,
+    `SELECT class_section_id AS id, count(*)::int AS n FROM enrollments WHERE academic_year_id = :y AND status NOT IN ('left', 'transferred') GROUP BY 1`,
     { replacements: { y: req.year.id }, type: QueryTypes.SELECT },
   );
   const byId = Object.fromEntries(counts.map((c) => [c.id, c.n]));

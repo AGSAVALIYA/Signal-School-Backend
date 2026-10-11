@@ -58,6 +58,8 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 - `npm run dev` uses `node --watch` instead of nodemon (unpatched advisory in its `braces` dependency).
 
 ### Fixed
+- Closed academic years showed "0 students" in Academic years and Classes: children who moved up, stayed back or
+  finished school that year are counted now (only those who left during the year are not).
 - Clerks could not admit children, edit them or add photos (refused by the teacher class check).
 - Student list: the status filter was ignored within a year, the order ignored class level, and `%`/`_` in a search
   matched every child.
