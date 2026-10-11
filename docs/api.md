@@ -68,6 +68,10 @@ assigned to them; owners and admins bypass assignment checks.
 | PATCH | `/organization`; GET `/organization/summary`; POST `/schools` | owner |
 | PATCH | `/school`; POST `/school/logo` | owner, admin |
 
+`PATCH /school` accepts `theme`, the look of the web app for everyone in the school: `signal` (default), `chalkboard`,
+`notebook`, `marigold`, `classic` or `clear` (list in `src/modules/schools/themes.js`). `/me` returns each school's
+`theme`, so the app opens in the school's look after login.
+
 ### Staff & assignments
 | Method | Path | Who | Notes |
 |---|---|---|---|

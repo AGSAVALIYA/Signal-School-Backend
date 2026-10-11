@@ -132,14 +132,14 @@ Photos uploaded before thumbnails existed (or imported from the old app): `npm r
 |---|---|---|
 | `db` | `postgres:16-alpine` | Data in the `db-data` volume; not published outside Docker |
 | `redis` | `redis:7-alpine` | Cache and rate-limit counters only: no persistence, 128 MB, oldest keys evicted |
-| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume |
-| `web` | built from the web app's `Dockerfile` | nginx: the app, `/api` and `/files` proxied to `api`, gzip, security headers. Published on `WEB_PORT` (8080) |
+| `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume. Read-only filesystem, no Linux capabilities, `no-new-privileges`, `init` |
+| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (8080) |
 
 ```bash
 npm run stack                    # first run: creates .env.stack with random secrets, clones the web app into
                                  # .stack/frontend, builds both images, starts all four and waits until healthy
 npm run stack -- owner --org "Samarth Bharat Vyaspeeth" --school "Signal Shala, Thane" --name "Principal" --phone 98XXXXXXXX
-npm run stack -- demo            # or: demo data instead (WIPES the stack's database)
+npm run stack -- demo            # or: the demo school instead (WIPES the stack's database; ~40 s)
 npm run stack -- ps | logs | down
 npm run stack                    # later: pulls the latest web app, rebuilds, restarts what changed
 ```
@@ -153,6 +153,12 @@ and `POSTGRES_PASSWORD` is fixed once the database volume exists.
 set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable
 `set_real_ip_from` for that proxy (so rate limits see each phone's IP, not the proxy's) and the
 `Strict-Transport-Security` header. Example `Caddyfile`: `app.signalschool.org { reverse_proxy localhost:8080 }`.
+
+**Images.** The API image is ~210 MB on disk (70 MB to download): Alpine with security updates, Node without npm,
+yarn or corepack, production dependencies pruned of other platforms' binaries, type declarations, source maps and
+docs. Code is owned by root, so the app cannot change itself. Both images keep dependencies in their own layer (only
+`package-lock.json` changes rebuild it) and BuildKit keeps npm's download cache between builds, so a code change
+rebuilds in seconds. `--build-arg UPGRADE_SYSTEM=false` skips the Alpine upgrade for offline builds.
 
 **Images on their own.** `docker build -t signal-school-api .` here and `docker build -t signal-school-web .` in the web
 app. The web image takes `API_UPSTREAM` (default `http://api:3000`) at run time and `VITE_API_URL` as a build argument.

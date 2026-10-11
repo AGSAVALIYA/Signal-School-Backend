@@ -99,4 +99,7 @@ async function urlFor(key) {
 
 const thumbUrlFor = (key) => urlFor(key && thumbKey(key));
 
-module.exports = { saveImage, ensureThumb, remove, urlFor, thumbUrlFor, thumbKey, verifySigned, localDir };
+// Replaces `photoKey` on query rows with a thumbnail link (lists of children with their faces).
+const withThumbs = (rows) => Promise.all(rows.map(async ({ photoKey, ...row }) => ({ ...row, thumbUrl: await thumbUrlFor(photoKey) })));
+
+module.exports = { saveImage, ensureThumb, remove, urlFor, thumbUrlFor, thumbKey, verifySigned, localDir, withThumbs };

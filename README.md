@@ -38,7 +38,11 @@ npm run db:seed                 # demo data, wipes the database (password: passw
 npm run dev                     # http://localhost:3000/health
 ```
 
-Demo logins after seeding: `owner@demo.test`, `clerk@demo.test`, `sunita@demo.test` (class teacher), `rahul@demo.test`.
+The demo seed builds a Signal Shala with two schools (Thane, Nerul), three academic years with promotions, children who
+joined, moved away or finished school, drawn faces (never real photos), daily attendance, syllabus progress, marks,
+health check-ups, diary notes and an activity log. Logins (password `password123`): `owner@demo.test`,
+`principal@demo.test`, `clerk@demo.test`, `sunita@demo.test` (class teacher, Std 1 A), `rahul@demo.test`,
+`imran@demo.test` (Nerul).
 
 Real school: `npm run create-owner -- --org "Trust" --school "School" --name "Owner" --phone 98XXXXXXXX`.
 
@@ -65,5 +69,5 @@ deployment.
 | `src/middlewares` | `authenticate`, `schoolScope` (X-School-Id), `yearScope` (X-Academic-Year), `requirePerm`, `validate` (zod), uploads, errors |
 | `src/modules/<feature>` | routes (+ service): auth, schools, users, structure, years, students, attendance, diary, syllabus, marks, health, dashboard |
 | `src/utils` | errors (stable codes), scope checks, dates (school timezone), audit, storage (S3 or signed local files, thumbnails), cache (optional Redis) |
-| `scripts` | migrate, seed (dev only), create-owner, stack (Docker), thumbnails, perf-seed + bench (load test) |
+| `scripts` | migrate, seed + `demo/` (demo school, dev only), create-owner, stack (Docker), thumbnails, perf-seed + bench + loadtest |
 | `tests` | Jest + supertest against Postgres, incl. an automatic cross-school scope matrix |

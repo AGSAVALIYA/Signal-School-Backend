@@ -6,6 +6,14 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 ## Unreleased
 
 ### Added
+- School look (`schools.theme`, migration `0003-school-theme`): set with `PATCH /school { theme }` by the principal,
+  returned per school by `/me`; the web app has six looks with Signal Shala as the default.
+- Demo seed rebuilt as a working Signal Shala: two schools, three academic years with promotions, detentions, children
+  who joined mid-year, moved away or finished school, drawn faces (`scripts/demo/avatars.js`, never real photos),
+  attendance for every school day with holidays, syllabus progress, marks, health check-ups, diary notes, activity
+  groups and an activity log. Deterministic, ~15 s. New logins `principal@demo.test` and `imran@demo.test`.
+- Faces in the dashboard's absence-streak and low-attendance lists and in today's absentees (`thumbUrl`).
+- `scripts/loadtest.js`: a school-morning load test (logins, attendance, lists, dashboard) with rising users.
 - `GET /students/possible-duplicates` — similar name or same guardian phone, so returning children are re-admitted (#3).
 - Dashboard `consecutiveAbsences`: children absent on their latest 3+ marked school days (#4).
 - `GET /students/:id/attendance?month=YYYY-MM` — one child's month with holidays and totals (#5).
@@ -24,6 +32,9 @@ All notable changes to the Signal School API. Dates are release dates; the forma
   [docs/performance.md](docs/performance.md).
 
 ### Changed
+- API image ~370 → ~210 MB on disk (100 → 70 MB to download): Node without npm/yarn/corepack, pruned production
+  dependencies, Alpine security updates, layer and npm caches for fast rebuilds. Compose runs the API read-only with
+  no capabilities, `no-new-privileges` and `init`; the web container runs nginx unprivileged on port 8080.
 - Student list is a single SQL query with lean rows (p50 90 → 34 ms, 38 KB → 2.3 KB for 50 children); dashboard
   69 ms → 19 ms with the cache. Faster absence streaks, report cards and history; new indexes (migration 0002).
 - Excel import and the new-year rollover use bulk statements: 1,200-row import 2.0 s → 0.2 s, rollover of a

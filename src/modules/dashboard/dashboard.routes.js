@@ -7,6 +7,7 @@ const { cacheResponse } = require('../../utils/cache');
 const m = require('../../db/models');
 const attendance = require('../attendance/attendance.service');
 const { todayIn, addDays } = require('../../utils/dates');
+const storage = require('../../utils/storage');
 const { page } = require('../../utils/http');
 const { isStaff } = require('../../utils/scope');
 
@@ -53,7 +54,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
     ),
     q(
       `SELECT st.id, st.name, cs.name AS "sectionName", st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage",
-              round(100.0 * count(*) FILTER (WHERE a.status IN ('P','LATE')) / count(*))::int AS percent, count(*)::int AS marked
+              st.photo_key AS "photoKey", round(100.0 * count(*) FILTER (WHERE a.status IN ('P','LATE')) / count(*))::int AS percent, count(*)::int AS marked
        FROM attendance a JOIN students st ON st.id = a.student_id JOIN class_sections cs ON cs.id = a.class_section_id
        WHERE a.school_id = :s AND a.academic_year_id = :y AND a.date > :from AND st.status = 'active'
        GROUP BY st.id, cs.name HAVING count(*) >= 5 AND 100.0 * count(*) FILTER (WHERE a.status IN ('P','LATE')) / count(*) < 75
@@ -90,7 +91,7 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
          ) k
          WHERE k.days >= :min
        )
-       SELECT st.id, st.name, cs.name AS "sectionName", k.days, k.since,
+       SELECT st.id, st.name, cs.name AS "sectionName", k.days, k.since, st.photo_key AS "photoKey",
               st.guardian_phone AS "guardianPhone", st.guardian_language AS "guardianLanguage"
        FROM streaks k JOIN students st ON st.id = k.student_id AND st.status = 'active'
        JOIN enrollments e ON e.student_id = st.id AND e.academic_year_id = :y AND e.status = 'active'
@@ -113,10 +114,10 @@ router.get('/dashboard', requirePerm('reports.view'), yearScope({ required: fals
       },
       today: req.year ? await attendance.today(req, y) : null,
       trend,
-      atRisk,
+      atRisk: await storage.withThumbs(atRisk),
       syllabus: syllabus.map((r) => ({ ...r, percent: r.total ? Math.round((100 * r.done) / r.total) : 0 })),
       birthdays,
-      consecutiveAbsences,
+      consecutiveAbsences: await storage.withThumbs(consecutiveAbsences),
     },
   });
 });
