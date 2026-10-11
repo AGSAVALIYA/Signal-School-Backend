@@ -73,7 +73,7 @@ Against the Docker stack instead (what users get: nginx, Redis cache, production
 
 ```bash
 npm run stack -- demo                                           # API repo; LOGIN_RATE_LIMIT=1000 in .env.stack for the run
-E2E_BASE_URL=http://localhost:8080 npx playwright test          # web repo
+E2E_BASE_URL=http://localhost:18080 npx playwright test          # web repo
 ```
 
 `e2e/a11y.spec.js` runs axe-core (WCAG 2.1 A/AA) on every screen for owner, clerk and teacher, including the student

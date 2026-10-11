@@ -27,7 +27,7 @@ web repo.
 ## Run with Docker (whole app, one command)
 
 ```bash
-npm run stack                   # clones the web app, builds, starts Postgres + Redis + API + web → http://localhost:8080
+npm run stack                   # clones the web app, builds, starts Postgres + Redis + API + web → http://localhost:18080
 npm run stack -- demo           # demo data (wipes the stack's database), or:
 npm run stack -- owner --org "Trust" --school "School" --name "Owner" --phone 98XXXXXXXX
 ```

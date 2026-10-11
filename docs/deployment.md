@@ -135,7 +135,7 @@ Photos uploaded before thumbnails existed (or imported from the old app): `npm r
 | `db` | `postgres:16-alpine` | Data in the `db-data` volume; not published outside Docker |
 | `redis` | `redis:7-alpine` | Cache and rate-limit counters only: no persistence, 128 MB, oldest keys evicted |
 | `api` | built from `Dockerfile` | Runs migrations, then the API as the `node` user; photos in the `uploads` volume. Read-only filesystem, no Linux capabilities, `no-new-privileges`, `init` |
-| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (8080) |
+| `web` | built from the web app's `Dockerfile` | nginx as the unprivileged `nginx` user on port 8080: the app, `/api` and `/files` proxied to `api`, gzip, security headers. No capabilities. Published on `WEB_PORT` (18080), on `WEB_BIND` (all interfaces; `127.0.0.1` for this machine only) |
 
 ```bash
 npm run stack                    # first run: creates .env.stack with random secrets, clones the web app into
@@ -148,7 +148,7 @@ npm run stack                    # later: pulls the latest web app, rebuilds, re
 ```
 
 Options (environment variables or lines in `.env.stack`): `FRONTEND_REF` (branch/tag of the web app, default `main`),
-`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_ORIGIN`, `S3_BUCKET`, `S3_ENDPOINT`,
+`FRONTEND_REPO`, `FRONTEND_DIR` (use your own checkout as it is), `WEB_PORT`, `WEB_BIND`, `WEB_ORIGIN`, `S3_BUCKET`, `S3_ENDPOINT`,
 `AWS_REGION` and keys, `LOGIN_RATE_LIMIT`, `LOG_LEVEL`. Keep `.env.stack` private and backed up: changing `JWT_SECRET` logs everyone out,
 and `POSTGRES_PASSWORD` is fixed once the database volume exists.
 
@@ -158,16 +158,21 @@ and `POSTGRES_PASSWORD` is fixed once the database volume exists.
 `docker compose --env-file .env.stack up -d --build --no-deps api web` (add `redis` to that list to keep the local
 Redis). The database user needs to own its database, as migrations create tables.
 
-**HTTPS.** The `web` container speaks plain HTTP. Put Caddy or a host nginx with a certificate in front of port 8080,
+**HTTPS.** The `web` container speaks plain HTTP. Put Caddy, a host nginx or a Cloudflare Tunnel in front of port 18080,
 set `WEB_ORIGIN=https://your.domain` in `.env.stack`, and in `docker/nginx.conf.template` of the web app enable
 `set_real_ip_from` for that proxy (so rate limits see each phone's IP, not the proxy's) and the
-`Strict-Transport-Security` header. Example `Caddyfile`: `app.signalschool.org { reverse_proxy localhost:8080 }`.
+`Strict-Transport-Security` header. Example `Caddyfile`: `app.signalschool.org { reverse_proxy localhost:18080 }`. With a
+proxy or tunnel on the same machine, set `WEB_BIND=127.0.0.1` so the plain-HTTP port is not reachable from outside, and point the proxy
+or tunnel at `http://127.0.0.1:18080`.
 
 **Images.** The API image is ~210 MB on disk (70 MB to download): Alpine with security updates, Node without npm,
 yarn or corepack, production dependencies pruned of other platforms' binaries, type declarations, source maps and
 docs. Code is owned by root, so the app cannot change itself. Both images keep dependencies in their own layer (only
 `package-lock.json` changes rebuild it) and BuildKit keeps npm's download cache between builds, so a code change
 rebuilds in seconds. `--build-arg UPGRADE_SYSTEM=false` skips the Alpine upgrade for offline builds.
+
+**ARM servers (arm64, e.g. Ampere).** Supported as is: every base image is multi-architecture and both lockfiles carry
+the arm64 Alpine builds of the native packages (sharp, the bundler), so `npm run stack` builds on the server itself.
 
 **Images on their own.** `docker build -t signal-school-api .` here and `docker build -t signal-school-web .` in the web
 app. The web image takes `API_UPSTREAM` (default `http://api:3000`) at run time and `VITE_API_URL` as a build argument.

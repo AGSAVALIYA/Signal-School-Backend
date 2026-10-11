@@ -5,6 +5,11 @@ All notable changes to the Signal School API. Dates are release dates; the forma
 
 ## Unreleased
 
+### Changed
+- Docker Compose publishes the web app on port **18080** (was 8080; the container still listens on 8080) and takes
+  `WEB_BIND` (e.g. `127.0.0.1` behind a tunnel or reverse proxy on the same host). Existing `.env.stack` files keep
+  their own `WEB_PORT`.
+
 ### Added
 - `npm run db:seed:qa` / `npm run stack -- qa`: the demo plus fixed children and logins (`scripts/demo/qa.js`) that the
   web app's manual QA pack refers to; today is always a school day.

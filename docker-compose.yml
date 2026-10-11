@@ -1,6 +1,7 @@
 # Whole Signal School on one machine: PostgreSQL, Redis, API and web app.
 # Easiest start: `npm run stack` (clones the web app, creates secrets in .env.stack, builds and starts everything).
-# Then open http://localhost:8080 (WEB_PORT).
+# Then open http://localhost:18080 (WEB_PORT). Only the web container is published on the host; Postgres, Redis and
+# the API stay on the stack's private network, so their ports never clash with anything else on the server.
 name: signal-school
 
 services:
@@ -49,7 +50,7 @@ services:
       REDIS_URL: ${EXTERNAL_REDIS_URL:-redis://redis:6379}
       # API processes sharing Redis ("auto" = one per CPU core, at most 4).
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
-      CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
+      CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:18080}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Leave S3_BUCKET empty to keep photos in the "uploads" volume. Cloudflare R2: also S3_ENDPOINT and AWS_REGION=auto.
@@ -73,8 +74,9 @@ services:
     restart: unless-stopped
     cap_drop: [ALL]
     security_opt: ['no-new-privileges:true']
+    # WEB_BIND=127.0.0.1 keeps it off the public interface (behind a tunnel or a reverse proxy on the same host).
     ports:
-      - '${WEB_PORT:-8080}:8080'
+      - '${WEB_BIND:+${WEB_BIND}:}${WEB_PORT:-18080}:8080'
     depends_on:
       api: { condition: service_healthy }
 

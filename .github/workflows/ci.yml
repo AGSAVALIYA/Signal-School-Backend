@@ -40,12 +40,12 @@ jobs:
       - run: npm run stack
       - name: Smoke test through the web container
         run: |
-          curl -fsS http://localhost:8080/health | grep -q '"redis":"ok"'
-          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:18080/health | grep -q '"redis":"ok"'
+          curl -fsS http://localhost:18080/ | grep -q '<div id="root">'
           npm run stack -- demo
-          token=$(curl -fsS http://localhost:8080/api/v1/auth/login -H 'content-type: application/json' \
+          token=$(curl -fsS http://localhost:18080/api/v1/auth/login -H 'content-type: application/json' \
             -d '{"identifier":"owner@demo.test","password":"password123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).data.accessToken')
-          curl -fsS -H "Authorization: Bearer $token" http://localhost:8080/api/v1/students | node -e 'const d=JSON.parse(require("fs").readFileSync(0)); if (!d.meta.total) process.exit(1)'
+          curl -fsS -H "Authorization: Bearer $token" http://localhost:18080/api/v1/students | node -e 'const d=JSON.parse(require("fs").readFileSync(0)); if (!d.meta.total) process.exit(1)'
       - if: failure()
         run: npm run stack -- logs --no-color --tail 200 || true
       - if: always()

@@ -18,7 +18,7 @@ npm test                              # Jest; needs Postgres at TEST_DATABASE_UR
                                       # (default postgres://postgres:postgres@localhost:5432/signal_test; schema is dropped & recreated)
 npm run lint && npm run format:check  # ESLint 10 flat config + Prettier
 npm audit --audit-level=moderate      # must stay at 0
-npm run stack                         # whole app in Docker (db, redis, api, web on :8080); `-- demo` loads demo data
+npm run stack                         # whole app in Docker (db, redis, api, web on :18080); `-- demo` loads demo data
 npm run db:seed:perf && node scripts/bench.js   # 1,200-child benchmark per endpoint (see docs/performance.md)
 node scripts/loadtest.js                        # school-morning load test with rising users (see docs/performance.md)
 npm run thumbnails                    # create missing list thumbnails for existing photos

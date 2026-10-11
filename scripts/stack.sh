@@ -8,7 +8,8 @@
 #   npm run stack -- logs | ps | down
 #
 # Settings (environment or .env.stack): FRONTEND_REPO, FRONTEND_REF (default main), FRONTEND_DIR (use your own
-# checkout instead of cloning), WEB_PORT (default 8080). Secrets are generated once into .env.stack (git-ignored).
+# checkout instead of cloning), WEB_PORT (default 18080), WEB_BIND
+# (127.0.0.1 to listen on this machine only). Secrets are generated once into .env.stack (git-ignored).
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -21,8 +22,8 @@ if [ ! -f "$ENV_FILE" ]; then
 # Created by scripts/stack.sh. Keep it private; changing JWT_SECRET logs everyone out.
 POSTGRES_PASSWORD=$(secret)
 JWT_SECRET=$(secret)
-WEB_PORT=8080
-WEB_ORIGIN=http://localhost:8080
+WEB_PORT=18080
+WEB_ORIGIN=http://localhost:18080
 EOF
   echo "Created $ENV_FILE with new secrets."
 fi
@@ -60,7 +61,7 @@ up() {
   fetch_frontend
   compose up -d --build --wait
   echo
-  echo "Signal School is running: ${WEB_ORIGIN:-http://localhost:${WEB_PORT:-8080}}"
+  echo "Signal School is running: ${WEB_ORIGIN:-http://localhost:${WEB_PORT:-18080}}"
   echo "First time? Create the owner account:  npm run stack -- owner --org \"…\" --school \"…\" --name \"…\" --phone 98XXXXXXXX"
   echo "Or try it with demo data:              npm run stack -- demo"
 }
