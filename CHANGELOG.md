@@ -14,6 +14,7 @@ All notable changes to the Signal School API. Dates are release dates; the forma
   groups and an activity log. Deterministic, ~15 s. New logins `principal@demo.test` and `imran@demo.test`.
 - Faces in the dashboard's absence-streak and low-attendance lists and in today's absentees (`thumbUrl`).
 - `scripts/loadtest.js`: a school-morning load test (logins, attendance, lists, dashboard) with rising users.
+- `WEB_CONCURRENCY` (number or `auto`): several API processes sharing Redis; Docker Compose runs 2.
 - `GET /students/possible-duplicates` — similar name or same guardian phone, so returning children are re-admitted (#3).
 - Dashboard `consecutiveAbsences`: children absent on their latest 3+ marked school days (#4).
 - `GET /students/:id/attendance?month=YYYY-MM` — one child's month with holidays and totals (#5).
@@ -32,6 +33,10 @@ All notable changes to the Signal School API. Dates are release dates; the forma
   [docs/performance.md](docs/performance.md).
 
 ### Changed
+- Load test fixes (`docs/performance.md`): 216 → 333 requests/s in one process, ~430 with two; 40 simultaneous logins
+  4.2 → 1.4 s. Passwords use scrypt on the thread pool (bcrypt hashes upgraded at login); user, school and year
+  lookups are cached 5 s per process; the JWT key and date formatter are made once; the dashboard's low-attendance
+  list counts from a covering index (migration `0004-attendance-cover`, 34 → 9 ms).
 - API image ~370 → ~210 MB on disk (100 → 70 MB to download): Node without npm/yarn/corepack, pruned production
   dependencies, Alpine security updates, layer and npm caches for fast rebuilds. Compose runs the API read-only with
   no capabilities, `no-new-privileges` and `init`; the web container runs nginx unprivileged on port 8080.

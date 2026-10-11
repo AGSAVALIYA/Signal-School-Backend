@@ -44,6 +44,8 @@ services:
       DATABASE_URL: postgres://signal:${POSTGRES_PASSWORD}@db:5432/signal
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (npm run stack creates one)}
       REDIS_URL: redis://redis:6379
+      # API processes sharing Redis ("auto" = one per CPU core, at most 4).
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       CORS_ORIGINS: ${WEB_ORIGIN:-http://localhost:8080}
       LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20}
       LOG_LEVEL: ${LOG_LEVEL:-info}

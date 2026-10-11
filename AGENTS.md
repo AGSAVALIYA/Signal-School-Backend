@@ -55,7 +55,7 @@ Demo logins after seeding (password `password123`): `owner@demo.test`, `principa
 8. **Audit** meaningful changes: `await audit(req, 'area.verb', { entityType, entityId, summary })` (never throws).
 9. Files: `storage.saveImage()` (re-encodes, strips EXIF); return URLs with `storage.urlFor(key)` — never public paths.
    Photos shown as avatars are saved with `{ thumb: true }`; lists return `thumbUrl` (`storage.thumbUrlFor`), not `photoUrl`.
-10. Schema changes **add a new migration pair** (`0003-school-theme` is the latest).
+10. Schema changes **add a new migration pair** (`0004-attendance-cover` is the latest).
 11. **Cached reads** (`cacheResponse(name)` after `yearScope`) are invalidated by any successful write request in the same
     school. A cached route whose data can change in another way (another school, a background job, a non-HTTP write)
     must not be cached, or needs `{ perUser: true }` when the answer depends on who asks.

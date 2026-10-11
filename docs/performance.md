@@ -67,6 +67,46 @@ The remaining floor (~17 ms at 10 parallel clients, ~550 requests/s) is authenti
 lookup), school/year resolution and JSON/gzip. That is far above what a school needs (a 40-teacher school
 taking attendance at 9 a.m. produces a few requests per second).
 
+## School-morning load test
+
+`scripts/loadtest.js` plays a school morning against the 1,200-child database: 40 staff log in at once, then 70% of
+the virtual users are teachers (home screen → attendance sheet → **save attendance** → class list → syllabus
+progress) and 30% are the office and principal (dashboard, today's attendance, search, a child's profile and history,
+the monthly register). Users never pause, so 10 of them load the API like a few hundred people using phones.
+
+```bash
+DATABASE_URL=postgres://…/signal_perf npm run db:seed:perf
+NODE_ENV=production PORT=3100 LOGIN_RATE_LIMIT=100000 API_RATE_LIMIT=10000000 npm start   # + WEB_CONCURRENCY/REDIS_URL
+LOAD_URL=http://localhost:3100 node scripts/loadtest.js 15 10,25,50,100
+```
+
+Measured on a 4-core machine that also runs Postgres and the load generator:
+
+| | Before | After (1 API process) | After (2 processes + Redis) |
+|---|---:|---:|---:|
+| 40 logins at the same moment | 4.2 s | 1.4 s | 1.4 s |
+| Requests/s at 10 / 25 / 50 / 100 users | 184 / 211 / 218 / 216 | 289 / 333 / 333 / 322 | 348 / 397 / 438 / 424 |
+| Save attendance p95 at 10 / 50 users | 150 / 423 ms | 109 / 448 ms | 80 / 298 ms |
+| Dashboard p95 at 10 / 50 users | 135 / 442 ms | 79 / 364 ms | 76 / 249 ms |
+| Failed requests | 0 | 0 | 0 |
+
+With 2 processes the machine itself is the limit (≈ 90% CPU across API, Postgres and the load generator). A real
+school's busiest moment, 40 teachers saving attendance within a few minutes, is a few requests per second.
+
+What the profile (`node --cpu-prof`) and `pg_stat_statements` showed, and the fixes:
+
+| Bottleneck | Fix |
+|---|---|
+| Passwords hashed with bcryptjs **on the main thread**: a login burst took 16% of all CPU and stalled every other request | scrypt from Node's core (32 MiB, run on the libuv thread pool, so all cores share the work and other requests keep flowing); bcrypt hashes still log in and are upgraded (`src/utils/passwords.js`) |
+| Every request loaded the user with memberships, the school and the year as Sequelize models (3 queries, ~⅓ of CPU) | Plain rows cached for 5 s per process; model hooks drop them when this process changes them (`src/middlewares/auth.js`). A revoked session is refused within 5 s |
+| `jsonwebtoken` converted the secret string on every request, first trying it as a public key (an exception per call) | Key object made once (`src/config/jwtKey.js`) |
+| `Intl.DateTimeFormat` created for every "today" | One formatter per timezone |
+| Dashboard "often absent" list read 30 days of the school's attendance rows from the table (34 ms) | Counts per child from a covering index, then names (9 ms; migration `0004-attendance-cover`) |
+| One Node process uses one core | `WEB_CONCURRENCY` (number or `auto`, at most 4) starts several API processes when `REDIS_URL` is set, so cache and rate limits stay shared. Docker Compose uses 2 |
+
+During the attendance rush every save invalidates the school's cached dashboard (correctness first), so the numbers
+above are without cache hits; outside the rush the cached answers are ~17 ms.
+
 ## Response cache and Redis
 
 `src/utils/cache.js`. Cached: `/dashboard`, `/today` (per user), `/sections`, `/syllabus/progress`, `/attendance/today`.
