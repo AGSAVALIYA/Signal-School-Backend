@@ -1,0 +1,22 @@
+
+> signal-school-web@1.0.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.3 [39m[90m/home/user/Signal-School-Frontend[39m
+
+ [32m✓[39m src/i18n/locales.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 67[2mms[22m[39m
+ [32m✓[39m src/theme/looks.test.js [2m([22m[2m19 tests[22m[2m)[22m[33m 563[2mms[22m[39m
+ [32m✓[39m src/features/attendance/offlineQueue.test.js [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/shared/components/components.test.jsx [2m([22m[2m4 tests[22m[2m)[22m[33m 346[2mms[22m[39m
+ [32m✓[39m src/shared/utils/utils.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[32m39 passed[39m[22m[90m (39)[39m
+[2m   Start at [22m 11:46:28
+[2m   Duration [22m 2.85s[2m (environment 54%, import 17%, tests 14%, transform 8%, setup 6%)[22m
+
+[2mEnvironment [22m [33mjsdom was created 5 times[39m[2m · 3.85s total, 54% of tracked time[22m
+[2m            [22m [2mcreate it once per worker with [22m[33mpool: 'vmThreads'[39m[2m (keeps per-file isolation) or [22m[33misolate: false[39m[2m (shares it across files)[22m
+[2m            [22m [2mlearn more: https://vitest.dev/guide/improving-performance#test-environments[22m
+

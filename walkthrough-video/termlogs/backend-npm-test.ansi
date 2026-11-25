@@ -1,0 +1,21 @@
+
+> signal-school-api@1.0.0 test
+> jest --runInBand
+
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mstudents.test.js[22m ([0m[1m[41m11.602 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mauth.test.js[22m ([0m[1m[41m7.188 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mhardening.test.js[22m ([0m[1m[41m6.745 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mattendance.test.js[22m ([0m[1m[41m6.738 s[49m[22m[0m)
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1msyllabus.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mcache.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1myears.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mhealth.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1msecurity.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mfollowup.test.js[22m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mtheme.test.js[22m
+
+[1mTest Suites: [22m[1m[32m11 passed[39m[22m, 11 total
+[1mTests:       [22m[1m[32m225 passed[39m[22m, 225 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        51.213 s, estimated 53 s
+[2mRan all test suites[22m[2m.[22m

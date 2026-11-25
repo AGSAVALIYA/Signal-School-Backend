@@ -1,0 +1,19 @@
+0:00  Introduction
+0:47  Backend — Project overview & folder structure
+4:45  Backend — Request pipeline & configuration
+6:23  Backend — Authentication & sessions
+8:37  Backend — Validation, errors & tenant isolation
+10:23  Backend — Database: migrations & models
+11:34  Backend — Attendance module
+13:32  Backend — Students & admissions
+14:39  Backend — New academic year (rollover)
+15:30  Backend — Cache, photo storage & jobs
+16:51  Backend — Tests & deployment
+18:18  Part 2 — Web app (frontend)
+18:27  Frontend — Project overview & folder structure
+19:44  Frontend — App shell, routing & navigation
+21:17  Frontend — API layer & session
+23:17  Frontend — Taking attendance, even offline
+25:11  Frontend — School looks & four languages
+26:33  Frontend — Offline PWA & tests
+27:33  Summary

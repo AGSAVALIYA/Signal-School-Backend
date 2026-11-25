@@ -1,0 +1,16 @@
+{
+  "name": "signal-school-walkthrough-video",
+  "private": true,
+  "type": "module",
+  "description": "Generates the code walkthrough video (see README.md)",
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/noto-sans-devanagari": "^5.2.8",
+    "@fontsource/noto-sans-gujarati": "^5.2.8",
+    "@iconify-json/material-icon-theme": "^1.2.0",
+    "@vscode/codicons": "^0.0.40",
+    "shiki": "^3.0.0",
+    "simple-icons": "^15.0.0"
+  }
+}

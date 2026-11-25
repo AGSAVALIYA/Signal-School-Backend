@@ -3,7 +3,7 @@ const globals = require('globals');
 const prettier = require('eslint-config-prettier');
 
 module.exports = [
-  { ignores: ['node_modules/', 'coverage/', 'uploads/', '.stack/'] },
+  { ignores: ['node_modules/', 'coverage/', 'uploads/', '.stack/', 'walkthrough-video/'] },
   js.configs.recommended,
   prettier,
   {

@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Code</title>
+<link rel="stylesheet" href="/node_modules/@vscode/codicons/dist/codicon.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/inter/400.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/inter/500.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/inter/600.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/inter/700.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/jetbrains-mono/400.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/jetbrains-mono/400-italic.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/jetbrains-mono/700.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/noto-sans-devanagari/400.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/noto-sans-gujarati/400.css">
+<link rel="stylesheet" href="/engine/engine.css">
+</head>
+<body>
+<div id="screen">
+  <div id="macbar">
+    <div class="mb-left">
+      <svg id="apple" viewBox="0 0 24 24"><path id="apple-path" fill="#fff"/></svg>
+      <span class="mb-app">Code</span>
+      <span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Window</span><span>Help</span>
+    </div>
+    <div class="mb-right">
+      <svg class="mb-ico" viewBox="0 0 28 14"><rect x="0.5" y="0.5" width="23" height="13" rx="3.5" fill="none" stroke="#fff" stroke-opacity=".55"/><rect x="2" y="2" width="16" height="10" rx="2" fill="#fff"/><rect x="25" y="4.5" width="2" height="5" rx="1" fill="#fff" fill-opacity=".55"/></svg>
+      <svg class="mb-ico" viewBox="0 0 20 15"><path d="M10 13.6l2.6-3.2a4 4 0 0 0-5.2 0z" fill="#fff"/><path d="M10 6.2a7.6 7.6 0 0 1 5.1 2l1.4-1.7a9.8 9.8 0 0 0-13 0l1.4 1.7a7.6 7.6 0 0 1 5.1-2z" fill="#fff"/><path d="M10 1.8a12 12 0 0 1 8.1 3.1l1.4-1.7a14.2 14.2 0 0 0-19 0l1.4 1.7A12 12 0 0 1 10 1.8z" fill="#fff"/></svg>
+      <svg class="mb-ico" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4.6" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M10 10l4 4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <svg class="mb-ico" viewBox="0 0 18 14"><rect x="1" y="1" width="16" height="5" rx="2.5" fill="none" stroke="#fff" stroke-width="1.3"/><circle cx="13.5" cy="3.5" r="1.6" fill="#fff"/><rect x="1" y="8" width="16" height="5" rx="2.5" fill="none" stroke="#fff" stroke-width="1.3"/><circle cx="4.5" cy="10.5" r="1.6" fill="#fff"/></svg>
+      <span id="clock"></span>
+    </div>
+  </div>
+  <div id="win">
+    <div id="titlebar">
+      <div class="traffic"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i></div>
+      <div class="tb-center">
+        <i class="codicon codicon-arrow-left tb-nav"></i><i class="codicon codicon-arrow-right tb-nav dim"></i>
+        <div id="cmdcenter"><i class="codicon codicon-search"></i><span id="cc-title">Signal-School-Backend</span></div>
+      </div>
+      <div class="tb-right">
+        <i class="codicon codicon-layout-sidebar-left"></i><i class="codicon codicon-layout-panel-off" id="tb-panel"></i><i class="codicon codicon-layout-sidebar-right-off"></i><i class="codicon codicon-layout"></i>
+      </div>
+    </div>
+    <div id="main">
+      <div id="activity">
+        <div class="act active"><i class="codicon codicon-files"></i></div>
+        <div class="act"><i class="codicon codicon-search"></i></div>
+        <div class="act"><i class="codicon codicon-source-control"></i></div>
+        <div class="act"><i class="codicon codicon-debug-alt"></i></div>
+        <div class="act"><i class="codicon codicon-extensions"></i></div>
+        <div class="act"><i class="codicon codicon-beaker"></i></div>
+        <div class="act-spacer"></div>
+        <div class="act"><i class="codicon codicon-account"></i></div>
+        <div class="act"><i class="codicon codicon-settings-gear"></i></div>
+      </div>
+      <div id="sidebar">
+        <div class="sb-title"><span>EXPLORER</span><i class="codicon codicon-ellipsis"></i></div>
+        <div class="sb-head" id="sb-head"><i class="codicon codicon-chevron-down"></i><span id="sb-root">SIGNAL-SCHOOL-BACKEND</span>
+          <span class="sb-actions" id="sb-actions"><i class="codicon codicon-new-file"></i><i class="codicon codicon-new-folder"></i><i class="codicon codicon-refresh"></i><i class="codicon codicon-collapse-all" id="collapse-all"></i></span></div>
+        <div id="tree-vp"><div id="tree"></div></div>
+        <div class="sb-head small"><i class="codicon codicon-chevron-right"></i><span>OUTLINE</span></div>
+        <div class="sb-head small"><i class="codicon codicon-chevron-right"></i><span>TIMELINE</span></div>
+      </div>
+      <div id="editor-area">
+        <div id="tabs"></div>
+        <div id="crumbs"></div>
+        <div id="editor">
+          <div id="welcome"><div class="wm">
+            <svg viewBox="0 0 100 100"><path fill="#fff" d="M71 5 33 40 14 25 5 30v40l9 5 19-15 38 35 24-10V15zM14 60V40l11 10zm57 10L50 50l21-20z"/></svg>
+            <dl><dt>Show All Commands</dt><dd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>P</kbd></dd><dt>Go to File</dt><dd><kbd>⌘</kbd><kbd>P</kbd></dd><dt>Find in Files</dt><dd><kbd>⇧</kbd><kbd>⌘</kbd><kbd>F</kbd></dd><dt>Toggle Full Screen</dt><dd><kbd>^</kbd><kbd>⌘</kbd><kbd>F</kbd></dd><dt>Show Settings</dt><dd><kbd>⌘</kbd><kbd>,</kbd></dd></dl></div></div>
+          <div id="gutter-vp"><div id="gutter"></div></div>
+          <div id="code-vp"><div id="code"><div id="sel-layer"></div><div id="guides"></div><div id="lines"></div><div id="caret"></div></div></div>
+          <canvas id="minimap"></canvas>
+          <div id="mm-slider"></div>
+          <div id="vscroll"><div id="vthumb"></div></div>
+        </div>
+        <div id="panel">
+          <div class="pn-head">
+            <span>PROBLEMS</span><span>OUTPUT</span><span>DEBUG CONSOLE</span><span class="on">TERMINAL</span><span>PORTS</span>
+            <div class="pn-right"><span class="pn-shell"><i class="codicon codicon-terminal"></i> zsh</span><i class="codicon codicon-add"></i><i class="codicon codicon-split-horizontal"></i><i class="codicon codicon-trash"></i><i class="codicon codicon-ellipsis"></i><i class="codicon codicon-chevron-up"></i><i class="codicon codicon-close"></i></div>
+          </div>
+          <div id="term"></div>
+        </div>
+      </div>
+    </div>
+    <div id="statusbar">
+      <div class="sl">
+        <span class="remote"><i class="codicon codicon-remote"></i></span>
+        <span><i class="codicon codicon-git-branch"></i> main</span>
+        <span><i class="codicon codicon-sync"></i></span>
+        <span><i class="codicon codicon-error"></i> 0 <i class="codicon codicon-warning"></i> 0</span>
+        <span><i class="codicon codicon-radio-tower"></i> 0</span>
+      </div>
+      <div class="sr">
+        <span id="st-pos"></span><span id="st-spaces">Spaces: 2</span><span>UTF-8</span><span>LF</span><span id="st-lang"></span>
+        <span><i class="codicon codicon-check-all"></i> Prettier</span><span><i class="codicon codicon-bell"></i></span>
+      </div>
+    </div>
+  </div>
+  <div id="quick">
+    <div class="q-input"><span id="q-text"></span><span id="q-caret"></span><span id="q-ph">Search files by name (append : to go to line or @ to go to symbol)</span></div>
+    <div id="q-list"></div>
+  </div>
+  <div id="banner"><div class="bn-kicker" id="bn-kicker"></div><div class="bn-title" id="bn-title"></div></div>
+  <div id="card"><div class="cd-inner">
+    <img id="cd-logo" src="/assets/sslogo.png" alt="">
+    <div id="cd-kicker"></div><div id="cd-title"></div><div id="cd-sub"></div><div id="cd-chips"></div>
+  </div></div>
+  <div id="cursor"></div>
+</div>
+<script src="/engine/engine.js"></script>
+</body>
+</html>
